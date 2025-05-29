@@ -131,6 +131,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
 ・落ち込みサイン  
 ・自分にかけてあげたい言葉  
 ・しろくまの処方せん：やさしいひとこと
+
 `;
 
       try {
