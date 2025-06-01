@@ -14,15 +14,20 @@ const config = {
 
 const client = new Client(config);
 
+// JSONファイル読み込み
 const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json'), 'utf-8'));
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json'), 'utf-8'));
 
-// 干支番号算出（1996/4/24 → 53番になるように）
+// 🐾 干支番号算出（1996/4/24 → 干支番号53に合わせる）
 function getEtoIndex(year, month, day) {
-  const base = new Date(1924, 0, 1); // 干支周期の基準日（1924/01/01）
-  const target = new Date(year, month - 1, day);
-  const diff = Math.floor((target - base) / (1000 * 60 * 60 * 24));
-  return ((diff % 60 + 60) % 60) + 1;
+  const targetDate = new Date(year, month - 1, day);
+  const baseDate = new Date(1996, 3, 24); // 1996年4月24日は JSでは4月＝3
+  const baseEtoNumber = 53;
+
+  const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
+  const etoIndex = ((baseEtoNumber + diffDays - 1) % 60 + 60) % 60 + 1;
+
+  return etoIndex;
 }
 
 app.post('/webhook', middleware(config), async (req, res) => {
@@ -59,14 +64,13 @@ app.post('/webhook', middleware(config), async (req, res) => {
       ? `「${animalEntry.動物}」タイプは、${animalEntry.リズム}のリズムを持ち、カラーは${animalEntry.カラー}です。`
       : '説明が見つかりません。';
 
-    const dayStem = '丙'; // 仮：日干のロジックは今後対応
+    const dayStem = '丙'; // 今後は日干を自動算出予定
     const stemData = stemMap.find(entry => entry.day_stem === dayStem);
     const element = stemData?.element || '不明';
     const guardianSpirit = stemData?.guardian_spirit || '不明';
     const stemDescription = stemData?.description || '説明が見つかりません。';
 
     if (animalType === '不明' || element === '不明' || guardianSpirit === '不明') {
-      console.error('データ不足:', { zodiacNumber, animalType, element, guardianSpirit });
       await client.replyMessage(event.replyToken, {
         type: 'text',
         text: '診断情報が正しく取得できませんでした。別の生年月日で試してみてね！'
