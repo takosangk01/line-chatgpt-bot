@@ -20,14 +20,10 @@ const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeig
 
 // 🐾 干支番号算出（1996/4/24 → 干支番号53に合わせる）
 function getEtoIndex(year, month, day) {
+  const baseDate = new Date(1983, 11, 6); // ← 1983年12月6日を新しい基準日に設定
   const targetDate = new Date(year, month - 1, day);
-  const baseDate = new Date(1996, 3, 24); // 1996年4月24日は JSでは4月＝3
-  const baseEtoNumber = 53;
-
   const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
-  const etoIndex = ((baseEtoNumber + diffDays - 1) % 60 + 60) % 60 + 1;
-
-  return etoIndex;
+  return ((diffDays % 60 + 60) % 60) + 1;
 }
 
 app.post('/webhook', middleware(config), async (req, res) => {
