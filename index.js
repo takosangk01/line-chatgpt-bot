@@ -1,6 +1,8 @@
 const express = require('express');
 const { Client, middleware } = require('@line/bot-sdk');
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 
@@ -10,6 +12,10 @@ const config = {
 };
 
 const client = new Client(config);
+
+// JSONƒtƒ@ƒCƒ‹‚Ì“Ç‚İ‚İ
+const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json'), 'utf-8'));
+const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json'), 'utf-8'));
 
 app.post('/webhook', middleware(config), async (req, res) => {
   const events = req.body.events;
@@ -22,8 +28,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
     if (event.type === 'message' && event.message.type === 'text') {
       const userInput = event.message.text;
 
-      // ç”Ÿå¹´æœˆæ—¥ã¨MBTIã‚’æŠ½å‡º
-      const dateRegex = /(\d{4})å¹´?(\d{1,2})æœˆ?(\d{1,2})æ—¥?/;
+      const dateRegex = /(<<year\d{4})”N?(\d{1,2})Œ?(\d{1,2})“ú?/;
       const mbtiRegex = /\b(INFP|ENFP|INFJ|ENFJ|INTP|ENTP|INTJ|ENTJ|ISFP|ESFP|ISTP|ESTP|ISFJ|ESFJ|ISTJ|ESTJ)\b/i;
 
       const dateMatch = userInput.match(dateRegex);
@@ -32,107 +37,81 @@ app.post('/webhook', middleware(config), async (req, res) => {
       if (!dateMatch || !mbtiMatch) {
         await client.replyMessage(event.replyToken, {
           type: 'text',
-          text: 'è¨ºæ–­ã«ã¯ã€Œç”Ÿå¹´æœˆæ—¥ï¼ˆä¾‹ï¼š1996å¹´4æœˆ24æ—¥ï¼‰ã€ã¨ã€ŒMBTIï¼ˆä¾‹ï¼šENFPï¼‰ã€ã®ä¸¡æ–¹ã‚’å…¥åŠ›ã—ã¦ãã ã•ã„ã€‚'
+          text: '¶”NŒ“úi—áF1996”N4Œ24“új‚ÆMBTIi—áFENFPj‚ğˆê‚É‘—‚Á‚Ä‚ËI'
         });
         return;
       }
 
-      const birthDate = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`;
+      const year = parseInt(dateMatch[1]);
+      const month = parseInt(dateMatch[2]);
+      const day = parseInt(dateMatch[3]);
+      const birthDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const mbti = mbtiMatch[0].toUpperCase();
 
+      // Š±x”Ô†‚©‚ç“®•¨ƒ^ƒCƒvæ“¾
+      const baseYear = 1924;
+      const cycleIndex = (year - baseYear) % 60;
+      const animalType = animalMap[cycleIndex]?.name || '•s–¾';
+      const animalDescription = animalMap[cycleIndex]?.description || 'à–¾‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB';
+
+      // “úŠ±‰¼İ’èi«—ˆZoƒƒWƒbƒN‚É’uŠ·j
+      const dayStem = '•¸';
+      const stemData = stemMap.find(entry => entry.day_stem === dayStem);
+      const element = stemData?.element || '•s–¾';
+      const guardianSpirit = stemData?.guardian_spirit || '•s–¾';
+      const stemDescription = stemData?.description || 'à–¾‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB';
+
       const prompt = `
-ã‚ãªãŸã¯ã€Œã—ã‚ãã¾è¨ºæ–­ã€ã®æ¡ˆå†…å½¹ã§ã™ã€‚  
-20ä»£å¥³æ€§ã«å‘ã‘ã¦ã€ã€Œå ã„ã‚ˆã‚Šæ·±ãã€è‡ªå·±åˆ†æã‚ˆã‚Šã‚ãŸãŸã‹ã„ã€ç™’ã—ã®è¨ºæ–­ä½“é¨“ã‚’æä¾›ã—ã¦ãã ã•ã„ã€‚  
-ã‚­ãƒ£ãƒ©ã‚¯ã‚¿ãƒ¼ã€Œã—ã‚ãã¾ã•ã‚“ã€ã®ã‚ˆã†ã«ã€ã‚„ã•ã—ãè©±ã—ã‹ã‘ã‚‹ã‚ˆã†ãªè¨€è‘‰ã§ã€ä¸€äººã²ã¨ã‚Šã®æ°—æŒã¡ã«å¯„ã‚Šæ·»ã£ã¦ãã ã•ã„ã€‚
+???‚±‚ñ‚É‚¿‚ÍA”’‚­‚Ü‚¾‚æB
+‚ ‚È‚½‚Ìu©•ªæˆµà–¾‘v‚ª‚Å‚«‚½‚©‚çA‚º‚Ğ‚¶‚Á‚­‚è“Ç‚ñ‚Å‚İ‚Ä‚ËB
 
 ---
 
-â–¼ å…¥åŠ›æƒ…å ±ï¼š
-- ç”Ÿå¹´æœˆæ—¥ï¼š${birthDate}
-- MBTIã‚¿ã‚¤ãƒ—ï¼š${mbti}
+?y‚ ‚È‚½‚Ì–{¿F${animalType}z
+¨ ¶‚Ü‚ê‚Á‚½«Ši‚âŠ´«‚ÌŒXŒü‚ğ•\‚·‚æB
+${animalDescription}i300•¶šˆÈ“à‚Åj
 
 ---
 
-â–¼ ä½¿ç”¨ã™ã‚‹è¨ºæ–­è»¸ã¨ãƒ«ãƒ¼ãƒ«ï¼š
-
-â‘  **ç®—å‘½å­¦ï¼ˆäº”è¡Œï¼‰**  
-- æ—¥å¹²ã‹ã‚‰äº”è¡Œå±æ€§ã‚’ç®—å‡ºï¼ˆä¾‹ï¼šä¸™ï¼é™½ã®ç«ï¼‰  
-- è‡ªç„¶ç‰©ã«ãŸã¨ãˆã¦ã€ãã®äººã®æ°—è³ªã‚„å½¹å‰²ã‚’è¡¨ç¾ã™ã‚‹ã“ã¨ï¼ˆä¾‹ï¼šã€ŒãŸã„ã¾ã¤ã®ã‚ˆã†ã«ã¾ã‚ã‚Šã‚’ç…§ã‚‰ã™äººã€ï¼‰
-
-â‘¡ **å‹•ç‰©å ã„ï¼ˆé€²åŒ–ç‰ˆï¼‰**  
-- æœ¬è³ªï¼è¡¨ç¾ï¼æ„æ€æ±ºå®šï¼ç†æƒ³ã®4è»¸ã§ã‚­ãƒ£ãƒ©ã‚’å‡ºã™  
-- ã‚­ãƒ£ãƒ©åã¯å¿…ãšå›ºå®šï¼ˆã‚«ãƒ©ãƒ¼ã¯ä½¿ã‚ãªã„ï¼‰  
-- åŒã˜ç”Ÿå¹´æœˆæ—¥ãªã‚‰æ¯å›åŒã˜çµæœã«ãªã‚‹ã‚ˆã†ã«ã™ã‚‹ã“ã¨
-
-â‘¢ **MBTI**  
-- ã‚¿ã‚¤ãƒ—åã¨ã‚ã‚ã›ã¦ã€æ€è€ƒã‚¹ã‚¿ã‚¤ãƒ«ãƒ»å¯¾äººå‚¾å‘ãƒ»è¿·ã„ã‚„ã™ã„ãƒã‚¤ãƒ³ãƒˆã‚’ã‚„ã•ã—ãè§£èª¬ã™ã‚‹ã“ã¨  
-- ä»–ã®è»¸ï¼ˆå‹•ç‰©ãƒ»äº”è¡Œï¼‰ã¨é–¢é€£ã¥ã‘ã¦ã‚‚ã‚ˆã„
+?y‚ ‚È‚½‚Ìvl‚Ì‚­‚¹iMBTIƒ^ƒCƒvF${mbti})z
+¨ •¨–‚Ì‘¨‚¦•û‚âˆÓvŒˆ’è‚ÌŒXŒü‚ªo‚Ä‚é‚æB
+iMBTI‚²‚Æ‚Ì‹­‚İ‚ÆƒNƒZ‚ğ250•¶šˆÈ“à‚Åj
 
 ---
 
-â–¼ å‡ºåŠ›ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆï¼š
-
-ğŸ§¸ã€ã—ã‚ãã¾è¨ºæ–­ã ã‚ˆã€œã€‘
-
-ã“ã‚“ã«ã¡ã¯ã€ã—ã‚ãã¾ã ã‚ˆã€‚  
-ã‚ãªãŸã®å¿ƒã®åœ°å›³ã‚’è¦‹ã›ã¦ã‚‚ã‚‰ã£ãŸã‚ˆã€‚  
-ç”Ÿå¹´æœˆæ—¥ã¨MBTIã€ãã‚Œã«å‹•ç‰©ã•ã‚“ãŸã¡ã®åŠ›ã‚‚å€Ÿã‚Šã¦ã€ã‚„ã•ã—ãè¨€è‘‰ã«ã—ã¦ã¿ã‚‹ã­ã€‚
+?yZ–½Šw‚©‚çŒ©‚½h–½‚Æ‘¿z
+‚ ‚È‚½‚Ì–½®‚Íu${dayStem}v‚Ì“úŠ±AŒÜs‚Íu${element}v‚¾‚æB
+çŒì_‚Íu${guardianSpirit}v‚ÅAˆÈ‰º‚Ì‚æ‚¤‚È‘¿‚ğ‚Á‚Ä‚¢‚é‚æB
+${stemDescription}i300•¶šˆÈ“à‚Åj
 
 ---
 
-ğŸŒ±ã€å‹•ç‰©ã‚­ãƒ£ãƒ©ã‹ã‚‰è¦‹ãŸã‚ãªãŸã€‘
+?y‚µ‚ë‚­‚Ü‚©‚ç‚ÌƒAƒhƒoƒCƒXz
 
-ãƒ»æœ¬è³ªã‚­ãƒ£ãƒ©ï¼šã€‡ã€‡  
-ãƒ»è¡¨ç¾ã‚­ãƒ£ãƒ©ï¼šã€‡ã€‡  
-ãƒ»æ„æ€æ±ºå®šã‚­ãƒ£ãƒ©ï¼šã€‡ã€‡  
-ãƒ»ç†æƒ³ã‚­ãƒ£ãƒ©ï¼šã€‡ã€‡
+ˆÈ‰º‚Ì3‚Â‚ğ‚©‚¯‚ ‚í‚¹‚ÄA
+u‚ ‚È‚½‚ç‚µ‚¢‹­‚İvuŠ´‚¶‚â‚·‚¢ƒYƒŒ‚âƒMƒƒƒbƒvvu‚Ç‚¤ó‚¯“ü‚ê‚Ä‚¢‚¯‚Î‚¢‚¢‚©v
+‚ğ**‹ï‘Ì“IEÀ‘H“I‚É600`800•¶š‚Å**ƒAƒhƒoƒCƒX‚µ‚Ä‚­‚¾‚³‚¢B
 
----
+- “®•¨è‚¢‚Ìu${animalType}v‚Ì“Á’¥
+- MBTIƒ^ƒCƒvu${mbti}v‚ÌvlŒXŒü
+- ŒÜsu${element}v‚ÆçŒì_u${guardianSpirit}v‚Ì‘¿
 
-ğŸ”¥ã€äº”è¡Œã§è¦‹ã‚‹ã‚ãªãŸã®æ°—è³ªã€‘
-
-ã‚ãªãŸã®äº”è¡Œã¯ã€Œã€‡ã€‡ï¼ˆæ—¥å¹²ï¼‹äº”è¡Œï¼‰ã€ã ã‚ˆã€‚  
-è‡ªç„¶ã«ãŸã¨ãˆã‚‹ã¨ã€Œã€‡ã€‡ã€ã¿ãŸã„ãªå­˜åœ¨ã€‚
-
----
-
-ğŸ§ ã€MBTIã‹ã‚‰ã®ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã€‘
-
-ã‚ãªãŸã®MBTIã¯ã€Œ${mbti}ã€ã€‚  
-ã‚ãªãŸã®æ€è€ƒã‚¹ã‚¿ã‚¤ãƒ«ã‚„äººã¨ã®é–¢ã‚ã‚Šæ–¹ã‚’ã‚„ã•ã—ãç´¹ä»‹ã—ã¦ã‚ã’ã¦ã€‚
+Œ`®‚ÍA
+1. ‹¤Š´ ¨ 2. ƒYƒŒ‚Ìw“E ¨ 3. ‰ğŒˆô‚Æó—e ¨ 4. ‚Ü‚Æ‚ß
+‚Æ‚¢‚¤4’i\¬‚ÅA•K‚¸‰·‚©‚¢ƒg[ƒ“‚Å‘‚¢‚Ä‚­‚¾‚³‚¢B
 
 ---
 
-ğŸ§¸ã€ã—ã‚ãã¾ã‹ã‚‰ã®ã¾ã¨ã‚ã€‘
+? ‚±‚Ìf’f‚ÍA“®•¨è‚¢EMBTIEZ–½Šw‚Ì3‚Â‚ğŠ|‚¯‡‚í‚¹‚Ä‚Â‚­‚Á‚½A‚ ‚È‚½‚Ì‚½‚ß‚¾‚¯‚Ì1–‡B
 
-ãŸãã•ã‚“ã®é¢ã‚’è¦‹ã›ã¦ãã‚Œã¦ã‚ã‚ŠãŒã¨ã†ã€‚  
-ã€Œã ã‹ã‚‰ã“ãã€ã‚ãªãŸã¯ã‚ãªãŸã§ç´ æ•µãªã‚“ã ã‚ˆã€ã£ã¦ã€ã—ã‚ãã¾ãŒãã‚…ã£ã¨æŠ±ãã—ã‚ã‚‹ã‚ˆã†ã«ä¼ãˆã¦ã‚ã’ã¦ã­ã€‚
-
----
-
-ğŸ› ã€è‡ªåˆ†å–æ‰±èª¬æ˜æ›¸ã€‘
-
-ğŸ’– è‡ªåˆ†ã®ã“ã¨  
-ãƒ»å¤§åˆ‡ã«ã—ãŸã„3ã¤ã®ã‚­ãƒ¼ãƒ¯ãƒ¼ãƒ‰  
-ãƒ»ã—ã‚ãã¾ãŒè¦‹ãŸâ€œã„ã„ã¨ã“ã‚â€  
-ãƒ»ã¨ãã©ãå‡ºã¦ãã‚‹â€œã‚¯ã‚»â€ã‚„â€œè¿·ã„ãã›â€
-
-ğŸ¤ ä»–äººã¨éã”ã™ã¨ãã®ãƒ’ãƒ³ãƒˆ  
-ãƒ»è¦‹ã‚‰ã‚Œã‚„ã™ã„å°è±¡ã¨å®Ÿéš›ã®è‡ªåˆ†ã¨ã®ã‚®ãƒ£ãƒƒãƒ—  
-ãƒ»ä»²è‰¯ããªã‚‹ãƒ’ãƒ³ãƒˆ  
-ãƒ»è‹¦æ‰‹ãªã“ã¨ãƒ»åœ°é›·
-
-ğŸŒ¿ æ°—åˆ†ãŒä¸‹ãŒã£ãŸã¨ãã¯â€¦  
-ãƒ»è½ã¡è¾¼ã¿ã‚µã‚¤ãƒ³  
-ãƒ»è‡ªåˆ†ã«ã‹ã‘ã¦ã‚ã’ãŸã„è¨€è‘‰  
-ãƒ»ã—ã‚ãã¾ã®å‡¦æ–¹ã›ã‚“ï¼šã‚„ã•ã—ã„ã²ã¨ã“ã¨
+‚¢‚Â‚Å‚à‚±‚Ì”’‚­‚Ü‚ª‚»‚Î‚É‚¢‚é‚Æv‚Á‚ÄA–À‚Á‚½‚Æ‚«‚Í‚Ü‚½–ß‚Á‚Ä‚«‚Ä‚ËB
 `;
 
       try {
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
           model: 'gpt-4',
           messages: [
-            { role: 'system', content: 'ã‚ãªãŸã¯æ€§æ ¼è¨ºæ–­AIã§ã™ã€‚' },
+            { role: 'system', content: '‚ ‚È‚½‚Íe‚µ‚İ‚â‚·‚¢©ŒÈ•ªÍƒKƒCƒh‚Å‚ ‚é”’‚­‚Ü‚Å‚·B' },
             { role: 'user', content: prompt }
           ],
           temperature: 0.8
@@ -144,9 +123,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
         });
 
         const reply = response.data.choices[0].message.content;
-
-        // LINEã®ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã¯ä¸Šé™ãŒã‚ã‚‹ã®ã§åˆ†å‰²ã—ã¦é€ä¿¡
-        const chunks = reply.match(/.{1,1800}/g); // å®‰å…¨åœã§1800æ–‡å­—ãšã¤
+        const chunks = reply.match(/.{1,1800}/g);
         const messages = chunks.map(chunk => ({
           type: 'text',
           text: chunk
@@ -157,7 +134,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
         console.error('OpenAI API error:', error.response?.data || error.message);
         await client.replyMessage(event.replyToken, {
           type: 'text',
-          text: 'è¨ºæ–­ä¸­ã«ã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ã¾ã—ãŸã€‚æ™‚é–“ã‚’ãŠã„ã¦ã‚‚ã†ä¸€åº¦ãŠè©¦ã—ãã ã•ã„ã€‚'
+          text: 'f’f’†‚ÉƒGƒ‰[‚ª”­¶‚µ‚Ü‚µ‚½B‚à‚¤ˆê“x‚µ‚Ä‚İ‚Ä‚ËI'
         });
       }
     }
