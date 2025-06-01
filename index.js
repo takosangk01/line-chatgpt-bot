@@ -13,13 +13,12 @@ const config = {
 
 const client = new Client(config);
 
-// JSON�t�@�C���̓ǂݍ���
+// JSON読み込み
 const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json'), 'utf-8'));
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json'), 'utf-8'));
 
 app.post('/webhook', middleware(config), async (req, res) => {
   const events = req.body.events;
-
   if (!events || events.length === 0) {
     return res.status(200).send('No events');
   }
@@ -28,7 +27,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
     if (event.type === 'message' && event.message.type === 'text') {
       const userInput = event.message.text;
 
-      const dateRegex = /(<<year\d{4})�N?(\d{1,2})��?(\d{1,2})��?/;
+      const dateRegex = /(\d{4})年?(\d{1,2})月?(\d{1,2})日?/;
       const mbtiRegex = /\b(INFP|ENFP|INFJ|ENFJ|INTP|ENTP|INTJ|ENTJ|ISFP|ESFP|ISTP|ESTP|ISFJ|ESFJ|ISTJ|ESTJ)\b/i;
 
       const dateMatch = userInput.match(dateRegex);
@@ -37,7 +36,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
       if (!dateMatch || !mbtiMatch) {
         await client.replyMessage(event.replyToken, {
           type: 'text',
-          text: '���N�����i��F1996�N4��24���j��MBTI�i��FENFP�j���ꏏ�ɑ����ĂˁI'
+          text: '生年月日（例：1996年4月24日）とMBTI（例：ENFP）を一緒に送ってね！'
         });
         return;
       }
@@ -45,73 +44,69 @@ app.post('/webhook', middleware(config), async (req, res) => {
       const year = parseInt(dateMatch[1]);
       const month = parseInt(dateMatch[2]);
       const day = parseInt(dateMatch[3]);
-      const birthDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const mbti = mbtiMatch[0].toUpperCase();
 
-      // ���x�ԍ����瓮���^�C�v�擾
-      const baseYear = 1924;
-      const cycleIndex = (year - baseYear) % 60;
-      const animalType = animalMap[cycleIndex]?.name || '�s��';
-      const animalDescription = animalMap[cycleIndex]?.description || '������������܂���B';
+      const cycleIndex = (year - 1924) % 60;
+      const animalType = animalMap[cycleIndex]?.name || '不明';
+      const animalDescription = animalMap[cycleIndex]?.description || '説明が見つかりません。';
 
-      // �������ݒ�i�����Z�o���W�b�N�ɒu���j
-      const dayStem = '��';
+      const dayStem = '丙'; // 仮設定
       const stemData = stemMap.find(entry => entry.day_stem === dayStem);
-      const element = stemData?.element || '�s��';
-      const guardianSpirit = stemData?.guardian_spirit || '�s��';
-      const stemDescription = stemData?.description || '������������܂���B';
+      const element = stemData?.element || '不明';
+      const guardianSpirit = stemData?.guardian_spirit || '不明';
+      const stemDescription = stemData?.description || '説明が見つかりません。';
 
       const prompt = `
-???����ɂ��́A�����܂���B
-���Ȃ��́u�����戵�������v���ł�������A���Ђ�������ǂ�ł݂ĂˁB
+🐻‍❄️こんにちは、白くまだよ。
+あなたの「自分取扱説明書」ができたから、ぜひじっくり読んでみてね。
 
 ---
 
-?�y���Ȃ��̖{���F${animalType}�z
-�� ���܂ꎝ�������i�⊴���̌X����\����B
-${animalDescription}�i300�����ȓ��Łj
+🟠【あなたの本質：${animalType}】
+→ 生まれ持った性格や感性の傾向を表すよ。
+${animalDescription}（300文字以内で）
 
 ---
 
-?�y���Ȃ��̎v�l�̂����iMBTI�^�C�v�F${mbti})�z
-�� �����̑�������ӎv����̌X�����o�Ă��B
-�iMBTI���Ƃ̋��݂ƃN�Z��250�����ȓ��Łj
+🟢【あなたの思考のくせ（MBTIタイプ：${mbti})】
+→ 物事の捉え方や意思決定の傾向が出てるよ。
+（MBTIごとの強みとクセを250文字以内で）
 
 ---
 
-?�y�Z���w���猩���h���Ǝ����z
-���Ȃ��̖����́u${dayStem}�v�̓����A�܍s�́u${element}�v����B
-���_�́u${guardianSpirit}�v�ŁA�ȉ��̂悤�Ȏ����������Ă����B
-${stemDescription}�i300�����ȓ��Łj
+🔵【算命学から見た宿命と資質】
+あなたの命式は「${dayStem}」の日干、五行は「${element}」だよ。
+守護神は「${guardianSpirit}」で、以下のような資質を持っているよ。
+${stemDescription}（300文字以内で）
 
 ---
 
-?�y���낭�܂���̃A�h�o�C�X�z
+🧸【しろくまからのアドバイス】
 
-�ȉ���3���������킹�āA
-�u���Ȃ��炵�����݁v�u�����₷���Y����M���b�v�v�u�ǂ��󂯓���Ă����΂������v
-��**��̓I�E���H�I��600�`800������**�A�h�o�C�X���Ă��������B
+以下の3つをかけあわせて、
+「あなたらしい強み」「感じやすいズレやギャップ」「どう受け入れていけばいいか」
+を**具体的・実践的に600～800文字で**アドバイスしてください。
 
-- �����肢�́u${animalType}�v�̓���
-- MBTI�^�C�v�u${mbti}�v�̎v�l�X��
-- �܍s�u${element}�v�Ǝ��_�u${guardianSpirit}�v�̎���
+- 動物占いの「${animalType}」の特徴
+- MBTIタイプ「${mbti}」の思考傾向
+- 五行「${element}」と守護神「${guardianSpirit}」の資質
 
-�`���́A
-1. ���� �� 2. �Y���̎w�E �� 3. ������Ǝ�e �� 4. �܂Ƃ�
-�Ƃ���4�i�\���ŁA�K���������g�[���ŏ����Ă��������B
+形式は、
+1. 共感 → 2. ズレの指摘 → 3. 解決策と受容 → 4. まとめ
+という4段構成で、必ず温かいトーンで書いてください。
 
 ---
 
-? ���̐f�f�́A�����肢�EMBTI�E�Z���w��3���|�����킹�Ă������A���Ȃ��̂��߂�����1���B
+📎 この診断は、動物占い・MBTI・算命学の3つを掛け合わせてつくった、あなたのためだけの1枚。
 
-���ł����̔����܂����΂ɂ���Ǝv���āA�������Ƃ��͂܂��߂��Ă��ĂˁB
+いつでもこの白くまがそばにいると思って、迷ったときはまた戻ってきてね。
 `;
 
       try {
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
           model: 'gpt-4',
           messages: [
-            { role: 'system', content: '���Ȃ��͐e���݂₷�����ȕ��̓K�C�h�ł��锒���܂ł��B' },
+            { role: 'system', content: 'あなたは親しみやすい自己分析ガイドである白くまです。' },
             { role: 'user', content: prompt }
           ],
           temperature: 0.8
@@ -134,7 +129,7 @@ ${stemDescription}�i300�����ȓ��Łj
         console.error('OpenAI API error:', error.response?.data || error.message);
         await client.replyMessage(event.replyToken, {
           type: 'text',
-          text: '�f�f���ɃG���[���������܂����B������x�����Ă݂ĂˁI'
+          text: '診断中にエラーが発生しました。もう一度試してみてね！'
         });
       }
     }
