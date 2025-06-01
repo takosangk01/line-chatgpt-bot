@@ -6,33 +6,39 @@ const path = require('path');
 
 const app = express();
 
-// LINE Bot設定
+// LINE設定
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.CHANNEL_SECRET
 };
-
 const client = new Client(config);
 
-// JSON読み込み
+// JSONデータの読み込み
 const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json'), 'utf-8'));
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json'), 'utf-8'));
 
-// 干支番号算出：1924年2月5日を1番としてカウント
-function getEtoIndex(year, month, day) {
-  const baseDate = new Date(1924, 1, 5); // JSの月は0始まり
+// 干支番号（1~60）を生年月日から算出
+function getEtoNumberFromDate(year, month, day) {
+  const baseDate = new Date(1984, 1, 2); // 甲子日
   const targetDate = new Date(year, month - 1, day);
   const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
-  return ((diffDays % 60 + 60) % 60) + 1;
+  const etoNumber = ((diffDays % 60 + 60) % 60) + 1;
+  return etoNumber;
+}
+
+// 日干を算出する（簡易ロジック、後で本実装へ置換）
+function getDayStemFromEtoNumber(etoNumber) {
+  const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+  return stems[(etoNumber - 1) % 10];
 }
 
 app.post('/webhook', middleware(config), async (req, res) => {
-  const events = req.body.events;
-  if (!events || events.length === 0) return res.status(200).send('No events');
+  const events = req.body.events || [];
 
   for (const event of events) {
     if (event.type === 'message' && event.message.type === 'text') {
       const userInput = event.message.text;
+
       const dateRegex = /(\d{4})年?(\d{1,2})月?(\d{1,2})日?/;
       const mbtiRegex = /\b(INFP|ENFP|INFJ|ENFJ|INTP|ENTP|INTJ|ENTJ|ISFP|ESFP|ISTP|ESTP|ISFJ|ESFJ|ISTJ|ESTJ)\b/i;
 
@@ -47,88 +53,70 @@ app.post('/webhook', middleware(config), async (req, res) => {
         return;
       }
 
-      const year = parseInt(dateMatch[1]);
-      const month = parseInt(dateMatch[2]);
-      const day = parseInt(dateMatch[3]);
+      const [_, year, month, day] = dateMatch.map(Number);
       const mbti = mbtiMatch[0].toUpperCase();
 
-      // 干支番号を正しく計算
-      const zodiacNumber = getEtoIndex(year, month, day);
-      const animalEntry = animalMap.find(entry => entry.干支番号 === zodiacNumber);
+      const etoNumber = getEtoNumberFromDate(year, month, day);
+      const animalEntry = animalMap.find(entry => entry.干支番号 === etoNumber);
       const animalType = animalEntry?.動物 || '不明';
-      const animalDescription = animalEntry
-        ? `「${animalEntry.動物}」タイプは、${animalEntry.リズム}のリズムを持ち、カラーは${animalEntry.カラー}です。`
-        : '説明が見つかりません。';
+      const rhythm = animalEntry?.リズム || '不明';
+      const color = animalEntry?.カラー || '不明';
 
-      const dayStem = '丙'; // TODO: 後で命式ロジックで動的取得
-      const stemData = stemMap.find(entry => entry.day_stem === dayStem);
-      const element = stemData?.element || '不明';
-      const guardianSpirit = stemData?.guardian_spirit || '不明';
-      const stemDescription = stemData?.description || '説明が見つかりません。';
+      const dayStem = getDayStemFromEtoNumber(etoNumber);
+      const stemEntry = stemMap.find(entry => entry.day_stem === dayStem);
+      const element = stemEntry?.element || '不明';
+      const guardian = stemEntry?.guardian_spirit || '不明';
+      const stemDesc = stemEntry?.description || '説明なし';
 
       const prompt = `
-🐻‍❄️こんにちは、白くまだよ。
-あなたの「自分取扱説明書」ができたから、ぜひじっくり読んでみてね。
+こんにちは、白くまだよ。
+以下の情報をもとに、自己分析アドバイスを出してください。
 
-🟠【あなたの本質：${animalType}】
-→ 生まれ持った性格や感性の傾向を表すよ。
-${animalDescription}（50文字以内で）
+【本質：${animalType}】
+→ 「${animalType}」タイプは、${rhythm}のリズムを持ち、カラーは${color}です。
 
-🟢【あなたの思考のくせ（MBTIタイプ：${mbti})】
-→ 物事の捉え方や意思決定の傾向が出てるよ。
-（MBTIごとの強みとクセを50文字以内で）
+【MBTIタイプ：${mbti}】
 
-🔵【算命学から見た宿命と資質】
-あなたの命式は「${dayStem}」の日干、五行は「${element}」だよ。
-守護神は「${guardianSpirit}」で、以下のような資質を持っているよ。
-${stemDescription}（50文字以内で）
+【算命学】
+日干：${dayStem}
+五行：${element}
+守護神：${guardian}
+説明：${stemDesc}
 
----
+--- 
+以下を600文字以内でアドバイスしてください：
+- 動物占い「${animalType}」の特徴
+- MBTI「${mbti}」の傾向
+- 五行「${element}」と守護神「${guardian}」の性質
 
-🧸【しろくまからのアドバイス】
-以下の3つをかけあわせて、
-「あなたらしい強み」「感じやすいズレやギャップ」「どう受け入れていけばいいか」
-を**具体的・実践的に600～800文字で**アドバイスしてください。
-
-- 動物占いの「${animalType}」の特徴
-- MBTIタイプ「${mbti}」の思考傾向
-- 五行「${element}」と守護神「${guardianSpirit}」の資質
-
-形式は、
-1. 共感 → 2. ズレの指摘 → 3. 解決策と受容 → 4. まとめ
-という4段構成で、必ず温かいトーンで書いてください。
-
----
-
-📎 この診断は、動物占い・MBTI・算命学の3つを掛け合わせてつくった、あなたのためだけの1枚。
-いつでもこの白くまがそばにいると思って、迷ったときはまた戻ってきてね。
+形式は：1. 共感 → 2. ズレの指摘 → 3. 解決策 → 4. まとめ
+温かい語り口で。
 `;
 
       try {
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
           model: 'gpt-4',
           messages: [
-            { role: 'system', content: 'あなたは親しみやすい自己分析ガイドである白くまです。' },
+            { role: 'system', content: 'あなたは親しみやすい自己分析ガイドの白くまです。' },
             { role: 'user', content: prompt }
           ],
-          temperature: 0.8
+          temperature: 0.8,
+          max_tokens: 1000
         }, {
           headers: {
-            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
             'Content-Type': 'application/json'
           }
         });
 
         const reply = response.data.choices[0].message.content;
-        const chunks = reply.match(/.{1,1800}/g);
-        const messages = chunks.map(chunk => ({
-          type: 'text',
-          text: chunk
-        }));
+        const chunks = reply.match(/.{1,1800}/g) || [];
 
+        const messages = chunks.map(text => ({ type: 'text', text }));
         await client.replyMessage(event.replyToken, messages);
-      } catch (error) {
-        console.error('OpenAI API error:', error.response?.data || error.message);
+
+      } catch (err) {
+        console.error('OpenAI API Error:', err.response?.data || err.message);
         await client.replyMessage(event.replyToken, {
           type: 'text',
           text: '診断中にエラーが発生しました。もう一度試してみてね！'
