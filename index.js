@@ -46,15 +46,16 @@ app.post('/webhook', middleware(config), async (req, res) => {
       const day = parseInt(dateMatch[3]);
       const mbti = mbtiMatch[0].toUpperCase();
 
-      // 干支番号（1～60）計算
-      const cycleIndex = (year - 1924) % 60 + 1;
-      const animalEntry = animalMap.find(entry => entry.干支番号 === cycleIndex);
+      // 干支番号の取得（1〜60）
+      const cycleIndex = (year - 1924) % 60;
+      const zodiacNumber = cycleIndex === 0 ? 60 : cycleIndex;
+      const animalEntry = animalMap.find(entry => entry.干支番号 === zodiacNumber);
       const animalType = animalEntry?.動物 || '不明';
       const animalDescription = animalEntry
-        ? `${animalEntry.動物}（カラー：${animalEntry.カラー}、リズム：${animalEntry.リズム}）`
+        ? `「${animalEntry.動物}」タイプは、${animalEntry.リズム}のリズムを持ち、カラーは${animalEntry.カラー}です。`
         : '説明が見つかりません。';
 
-      const dayStem = '丙'; // 仮
+      const dayStem = '丙'; // 仮設定
       const stemData = stemMap.find(entry => entry.day_stem === dayStem);
       const element = stemData?.element || '不明';
       const guardianSpirit = stemData?.guardian_spirit || '不明';
@@ -106,6 +107,9 @@ ${stemDescription}（300文字以内で）
 いつでもこの白くまがそばにいると思って、迷ったときはまた戻ってきてね。
 `;
 
+      console.log('==== PROMPT ====');
+      console.log(prompt);
+
       try {
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
           model: 'gpt-4',
@@ -120,6 +124,9 @@ ${stemDescription}（300文字以内で）
             'Content-Type': 'application/json'
           }
         });
+
+        console.log('==== RESPONSE ====');
+        console.log(response.data);
 
         const reply = response.data.choices[0].message.content;
         const chunks = reply.match(/.{1,1800}/g);
