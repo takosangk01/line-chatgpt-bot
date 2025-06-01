@@ -56,51 +56,10 @@ app.post('/webhook', middleware(config), async (req, res) => {
       const guardianSpirit = stemData?.guardian_spirit || '不明';
       const stemDescription = stemData?.description || '説明が見つかりません。';
 
-      const prompt = `
-🐻‍❄️こんにちは、白くまだよ。
-あなたの「自分取扱説明書」ができたから、ぜひじっくり読んでみてね。
+      const prompt = `\n🐻‍❄️こんにちは、白くまだよ。\nあなたの「自分取扱説明書」ができたから、ぜひじっくり読んでみてね。\n\n---\n\n🟠【あなたの本質：${animalType}】\n→ 生まれ持った性格や感性の傾向を表すよ。\n${animalDescription}（300文字以内で）\n\n---\n\n🟢【あなたの思考のくせ（MBTIタイプ：${mbti})】\n→ 物事の捉え方や意思決定の傾向が出てるよ。\n（MBTIごとの強みとクセを250文字以内で）\n\n---\n\n🔵【算命学から見た宿命と資質】\nあなたの命式は「${dayStem}」の日干、五行は「${element}」だよ。\n守護神は「${guardianSpirit}」で、以下のような資質を持っているよ。\n${stemDescription}（300文字以内で）\n\n---\n\n🧸【しろくまからのアドバイス】\n\n以下の3つをかけあわせて、\n「あなたらしい強み」「感じやすいズレやギャップ」「どう受け入れていけばいいか」\nを**具体的・実践的に600～800文字で**アドバイスしてください。\n\n- 動物占いの「${animalType}」の特徴\n- MBTIタイプ「${mbti}」の思考傾向\n- 五行「${element}」と守護神「${guardianSpirit}」の資質\n\n形式は、\n1. 共感 → 2. ズレの指摘 → 3. 解決策と受容 → 4. まとめ\nという4段構成で、必ず温かいトーンで書いてください。\n\n---\n\n📎 この診断は、動物占い・MBTI・算命学の3つを掛け合わせてつくった、あなたのためだけの1枚。\n\nいつでもこの白くまがそばにいると思って、迷ったときはまた戻ってきてね。`;
 
----
-
-🟠【あなたの本質：${animalType}】
-→ 生まれ持った性格や感性の傾向を表すよ。
-${animalDescription}（300文字以内で）
-
----
-
-🟢【あなたの思考のくせ（MBTIタイプ：${mbti})】
-→ 物事の捉え方や意思決定の傾向が出てるよ。
-（MBTIごとの強みとクセを250文字以内で）
-
----
-
-🔵【算命学から見た宿命と資質】
-あなたの命式は「${dayStem}」の日干、五行は「${element}」だよ。
-守護神は「${guardianSpirit}」で、以下のような資質を持っているよ。
-${stemDescription}（300文字以内で）
-
----
-
-🧸【しろくまからのアドバイス】
-
-以下の3つをかけあわせて、
-「あなたらしい強み」「感じやすいズレやギャップ」「どう受け入れていけばいいか」
-を**具体的・実践的に600～800文字で**アドバイスしてください。
-
-- 動物占いの「${animalType}」の特徴
-- MBTIタイプ「${mbti}」の思考傾向
-- 五行「${element}」と守護神「${guardianSpirit}」の資質
-
-形式は、
-1. 共感 → 2. ズレの指摘 → 3. 解決策と受容 → 4. まとめ
-という4段構成で、必ず温かいトーンで書いてください。
-
----
-
-📎 この診断は、動物占い・MBTI・算命学の3つを掛け合わせてつくった、あなたのためだけの1枚。
-
-いつでもこの白くまがそばにいると思って、迷ったときはまた戻ってきてね。
-`;
+      console.log('==== PROMPT ====');
+      console.log(prompt);
 
       try {
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -116,6 +75,9 @@ ${stemDescription}（300文字以内で）
             'Content-Type': 'application/json'
           }
         });
+
+        console.log('==== RESPONSE ====');
+        console.log(response.data);
 
         const reply = response.data.choices[0].message.content;
         const chunks = reply.match(/.{1,1800}/g);
