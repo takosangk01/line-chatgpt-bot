@@ -46,23 +46,15 @@ app.post('/webhook', middleware(config), async (req, res) => {
       const day = parseInt(dateMatch[3]);
       const mbti = mbtiMatch[0].toUpperCase();
 
-      // 干支番号（0〜59）を安全に計算
-      const cycleIndex = ((year - 1924) % 60 + 60) % 60;
+      // 干支番号（1～60）計算
+      const cycleIndex = (year - 1924) % 60 + 1;
+      const animalEntry = animalMap.find(entry => entry.干支番号 === cycleIndex);
+      const animalType = animalEntry?.動物 || '不明';
+      const animalDescription = animalEntry
+        ? `${animalEntry.動物}（カラー：${animalEntry.カラー}、リズム：${animalEntry.リズム}）`
+        : '説明が見つかりません。';
 
-      // データが存在しない場合は早期リターン
-      if (!animalMap[cycleIndex] || !animalMap[cycleIndex].name) {
-        await client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: '動物占いのデータが見つかりませんでした。生年月日が正しいか確認してね！'
-        });
-        return;
-      }
-
-      const animalType = animalMap[cycleIndex].name;
-      const animalDescription = animalMap[cycleIndex].description || '説明が見つかりません。';
-
-      // 日干は仮に固定（将来的に birthDate から計算）
-      const dayStem = '丙';
+      const dayStem = '丙'; // 仮
       const stemData = stemMap.find(entry => entry.day_stem === dayStem);
       const element = stemData?.element || '不明';
       const guardianSpirit = stemData?.guardian_spirit || '不明';
@@ -76,7 +68,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
 🟠【あなたの本質：${animalType}】
 → 生まれ持った性格や感性の傾向を表すよ。
-${animalDescription}
+${animalDescription}（300文字以内で）
 
 ---
 
@@ -89,7 +81,7 @@ ${animalDescription}
 🔵【算命学から見た宿命と資質】
 あなたの命式は「${dayStem}」の日干、五行は「${element}」だよ。
 守護神は「${guardianSpirit}」で、以下のような資質を持っているよ。
-${stemDescription}
+${stemDescription}（300文字以内で）
 
 ---
 
@@ -110,31 +102,24 @@ ${stemDescription}
 ---
 
 📎 この診断は、動物占い・MBTI・算命学の3つを掛け合わせてつくった、あなたのためだけの1枚。
+
+いつでもこの白くまがそばにいると思って、迷ったときはまた戻ってきてね。
 `;
 
-      // デバッグログ（Render Logsに表示）
-      console.log('==== PROMPT ====');
-      console.log(prompt);
-
-      const payload = {
-        model: 'gpt-4',
-        messages: [
-          { role: 'system', content: 'あなたは親しみやすい自己分析ガイドである白くまです。' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.8
-      };
-
       try {
-        const response = await axios.post('https://api.openai.com/v1/chat/completions', payload, {
+        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+          model: 'gpt-4',
+          messages: [
+            { role: 'system', content: 'あなたは親しみやすい自己分析ガイドである白くまです。' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.8
+        }, {
           headers: {
             'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
             'Content-Type': 'application/json'
           }
         });
-
-        console.log('==== RESPONSE ====');
-        console.log(response.data);
 
         const reply = response.data.choices[0].message.content;
         const chunks = reply.match(/.{1,1800}/g);
