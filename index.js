@@ -46,11 +46,23 @@ app.post('/webhook', middleware(config), async (req, res) => {
       const day = parseInt(dateMatch[3]);
       const mbti = mbtiMatch[0].toUpperCase();
 
-      const cycleIndex = (year - 1924) % 60;
-      const animalType = animalMap[cycleIndex]?.name || '不明';
-      const animalDescription = animalMap[cycleIndex]?.description || '説明が見つかりません。';
+      // 干支番号（0〜59）を安全に計算
+      const cycleIndex = ((year - 1924) % 60 + 60) % 60;
 
-      const dayStem = '丙'; // 仮設定
+      // データが存在しない場合は早期リターン
+      if (!animalMap[cycleIndex] || !animalMap[cycleIndex].name) {
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '動物占いのデータが見つかりませんでした。生年月日が正しいか確認してね！'
+        });
+        return;
+      }
+
+      const animalType = animalMap[cycleIndex].name;
+      const animalDescription = animalMap[cycleIndex].description || '説明が見つかりません。';
+
+      // 日干は仮に固定（将来的に birthDate から計算）
+      const dayStem = '丙';
       const stemData = stemMap.find(entry => entry.day_stem === dayStem);
       const element = stemData?.element || '不明';
       const guardianSpirit = stemData?.guardian_spirit || '不明';
@@ -100,7 +112,7 @@ ${stemDescription}
 📎 この診断は、動物占い・MBTI・算命学の3つを掛け合わせてつくった、あなたのためだけの1枚。
 `;
 
-      // 🔍 ログ出力（Renderログに出る）
+      // デバッグログ（Render Logsに表示）
       console.log('==== PROMPT ====');
       console.log(prompt);
 
@@ -112,9 +124,6 @@ ${stemDescription}
         ],
         temperature: 0.8
       };
-
-      console.log('==== OPENAI PAYLOAD ====');
-      console.log(JSON.stringify(payload, null, 2));
 
       try {
         const response = await axios.post('https://api.openai.com/v1/chat/completions', payload, {
