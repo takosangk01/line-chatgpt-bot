@@ -17,6 +17,14 @@ const client = new Client(config);
 const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json'), 'utf-8'));
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json'), 'utf-8'));
 
+// 干支番号を算出する関数（1〜60）
+function getEtoIndex(year, month, day) {
+  const baseDate = new Date(1984, 1, 2); // 甲子年基準、JSは月0始まり
+  const targetDate = new Date(year, month - 1, day);
+  const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
+  return ((diffDays % 60 + 60) % 60) + 1;
+}
+
 app.post('/webhook', middleware(config), async (req, res) => {
   const events = req.body.events;
   if (!events || events.length === 0) {
@@ -46,50 +54,64 @@ app.post('/webhook', middleware(config), async (req, res) => {
       const day = parseInt(dateMatch[3]);
       const mbti = mbtiMatch[0].toUpperCase();
 
-      const cycleIndex = (year - 1924) % 60;
-      const zodiacNumber = cycleIndex === 0 ? 60 : cycleIndex;
+      // 修正済み：干支番号を正確に算出
+      const zodiacNumber = getEtoIndex(year, month, day);
       const animalEntry = animalMap.find(entry => entry.干支番号 === zodiacNumber);
       const animalType = animalEntry?.動物 || '不明';
       const animalDescription = animalEntry
         ? `「${animalEntry.動物}」タイプは、${animalEntry.リズム}のリズムを持ち、カラーは${animalEntry.カラー}です。`
         : '説明が見つかりません。';
 
-      const trimmedAnimalDesc = animalDescription.slice(0, 300);
-
-      // ★日干（dayStem）を仮に設定 → 後ほど生年月日から正確に計算するロジックを追加予定
-      const dayStem = '丙';
+      const dayStem = '丙'; // ← ※ここも今後動的に算出予定
       const stemData = stemMap.find(entry => entry.day_stem === dayStem);
       const element = stemData?.element || '不明';
       const guardianSpirit = stemData?.guardian_spirit || '不明';
       const stemDescription = stemData?.description || '説明が見つかりません。';
-      const trimmedStemDesc = stemDescription.slice(0, 300);
 
       const prompt = `
-こんにちは、白くまだよ。
-あなたの性格診断の結果だよ！
+🐻‍❄️こんにちは、白くまだよ。
+あなたの「自分取扱説明書」ができたから、ぜひじっくり読んでみてね。
 
-【動物占い：${animalType}】
-${trimmedAnimalDesc}
+🟠【あなたの本質：${animalType}】
+→ 生まれ持った性格や感性の傾向を表すよ。
+${animalDescription}（100文字以内で）
 
-【MBTI：${mbti}】
-（MBTIの解釈はAIが補完）
+---
 
-【算命学】
-日干：${dayStem}／五行：${element}／守護神：${guardianSpirit}
-${trimmedStemDesc}
+🟢【あなたの思考のくせ（MBTIタイプ：${mbti})】
+→ 物事の捉え方や意思決定の傾向が出てるよ。
+（MBTIごとの強みとクセを100文字以内で）
 
-これら3つをもとに、以下の形式で800文字以内でアドバイスしてください：
+---
 
-1. 共感  
-2. ズレの指摘  
-3. 解決策と受容  
-4. まとめ
+🔵【算命学から見た宿命と資質】
+あなたの命式は「${dayStem}」の日干、五行は「${element}」だよ。
+守護神は「${guardianSpirit}」で、以下のような資質を持っているよ。
+${stemDescription}（100文字以内で）
 
-温かい口調で書いてね！
-      `;
+---
 
-      console.log('==== PROMPT LENGTH ====');
-      console.log(prompt.length);
+🧸【しろくまからのアドバイス】
+
+以下の3つをかけあわせて、
+「あなたらしい強み」「感じやすいズレやギャップ」「どう受け入れていけばいいか」
+を**具体的・実践的に600～800文字で**アドバイスしてください。
+
+- 動物占いの「${animalType}」の特徴
+- MBTIタイプ「${mbti}」の思考傾向
+- 五行「${element}」と守護神「${guardianSpirit}」の資質
+
+形式は、
+1. 共感 → 2. ズレの指摘 → 3. 解決策と受容 → 4. まとめ
+という4段構成で、必ず温かいトーンで書いてください。
+
+---
+
+📎 この診断は、動物占い・MBTI・算命学の3つを掛け合わせてつくった、あなたのためだけの1枚。
+
+いつでもこの白くまがそばにいると思って、迷ったときはまた戻ってきてね。
+`;
+
       console.log('==== PROMPT ====');
       console.log(prompt);
 
@@ -107,9 +129,6 @@ ${trimmedStemDesc}
             'Content-Type': 'application/json'
           }
         });
-
-        console.log('==== RESPONSE ====');
-        console.log(response.data);
 
         const reply = response.data.choices[0].message.content;
         const chunks = reply.match(/.{1,1800}/g);
