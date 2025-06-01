@@ -74,20 +74,18 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
 🟠【あなたの本質：${animalType}】
 → 生まれ持った性格や感性の傾向を表すよ。
-${animalDescription}（100文字以内で）
+${animalDescription}（50文字以内で）
 
----
 
 🟢【あなたの思考のくせ（MBTIタイプ：${mbti})】
 → 物事の捉え方や意思決定の傾向が出てるよ。
-（MBTIごとの強みとクセを100文字以内で）
+（MBTIごとの強みとクセを50文字以内で）
 
----
 
 🔵【算命学から見た宿命と資質】
 あなたの命式は「${dayStem}」の日干、五行は「${element}」だよ。
 守護神は「${guardianSpirit}」で、以下のような資質を持っているよ。
-${stemDescription}（100文字以内で）
+${stemDescription}（50文字以内で）
 
 ---
 
