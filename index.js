@@ -19,11 +19,12 @@ const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corre
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json'), 'utf-8'));
 
 // 🐾 干支番号算出（1996/4/24 → 干支番号53に合わせる）
-function getEtoIndex(year, month, day) {
-  const baseDate = new Date(1983, 11, 6); // ← 1983年12月6日を新しい基準日に設定
+function getCorrectEtoIndex(year, month, day) {
   const targetDate = new Date(year, month - 1, day);
+  const baseDate = new Date(1984, 1, 2); // 1984年2月2日（立春）を「甲子」1番の開始日に設定
   const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
-  return ((diffDays % 60 + 60) % 60) + 1;
+  const index = ((diffDays % 60 + 60) % 60) + 1;
+  return index;
 }
 
 app.post('/webhook', middleware(config), async (req, res) => {
