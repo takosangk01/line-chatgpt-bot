@@ -14,13 +14,12 @@ const config = {
 
 const client = new Client(config);
 
-// JSONファイル読み込み
 const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json'), 'utf-8'));
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json'), 'utf-8'));
 
-// 干支番号算出（1996/4/24 → 干支番号53になるように）
+// 干支番号算出（1996/4/24 → 53番になるように）
 function getEtoIndex(year, month, day) {
-  const base = new Date(1924, 0, 1); // 干支の基準（1924年1月1日が1番）
+  const base = new Date(1924, 0, 1); // 干支周期の基準日（1924/01/01）
   const target = new Date(year, month - 1, day);
   const diff = Math.floor((target - base) / (1000 * 60 * 60 * 24));
   return ((diff % 60 + 60) % 60) + 1;
@@ -60,46 +59,37 @@ app.post('/webhook', middleware(config), async (req, res) => {
       ? `「${animalEntry.動物}」タイプは、${animalEntry.リズム}のリズムを持ち、カラーは${animalEntry.カラー}です。`
       : '説明が見つかりません。';
 
-    const dayStem = '丙'; // ← 仮設定、後で日干算出へ変更
+    const dayStem = '丙'; // 仮：日干のロジックは今後対応
     const stemData = stemMap.find(entry => entry.day_stem === dayStem);
     const element = stemData?.element || '不明';
     const guardianSpirit = stemData?.guardian_spirit || '不明';
     const stemDescription = stemData?.description || '説明が見つかりません。';
 
-    // データ確認
     if (animalType === '不明' || element === '不明' || guardianSpirit === '不明') {
+      console.error('データ不足:', { zodiacNumber, animalType, element, guardianSpirit });
       await client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '診断情報が正しく取得できませんでした。別の生年月日で試してみてください。'
+        text: '診断情報が正しく取得できませんでした。別の生年月日で試してみてね！'
       });
       continue;
     }
 
-    const prompt = `
-こんにちは、白くまだよ。
-以下の情報をもとに、自己分析アドバイスを出してください。
-
+    const prompt = `こんにちは、白くまだよ。以下の情報をもとに、自己分析アドバイスを出してください。
 【本質：${animalType}】
 → ${animalDescription}
-
 【MBTIタイプ：${mbti}】
-
 【算命学】
 日干：${dayStem}
 五行：${element}
 守護神：${guardianSpirit}
 説明：${stemDescription}
-
 ---
 以下を600文字以内でアドバイスしてください：
-
 - 動物占い「${animalType}」の特徴
 - MBTI「${mbti}」の傾向
 - 五行「${element}」と守護神「${guardianSpirit}」の性質
-
 形式は：1. 共感 → 2. ズレの指摘 → 3. 解決策 → 4. まとめ
-語り口は温かく、白くまが語るように。
-`;
+語り口は温かく、白くまが語るように。`;
 
     console.log("==== PROMPT ====");
     console.log(prompt);
@@ -113,7 +103,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 800
+        max_tokens: 600
       }, {
         headers: {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
