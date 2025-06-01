@@ -68,46 +68,30 @@ app.post('/webhook', middleware(config), async (req, res) => {
       const guardianSpirit = stemData?.guardian_spirit || '不明';
       const stemDescription = stemData?.description || '説明が見つかりません。';
 
-      const prompt = `
-🐻‍❄️こんにちは、白くまだよ。
-あなたの「自分取扱説明書」ができたから、ぜひじっくり読んでみてね。
+      const prompt =  `
+こんにちは、白くまだよ。
+以下の情報をもとに、自己分析アドバイスを出してください。
 
-🟠【あなたの本質：${animalType}】
-→ 生まれ持った性格や感性の傾向を表すよ。
-${animalDescription}（50文字以内で）
+【本質：${animalType}】
+→ ${animalDescription}
 
+【MBTIタイプ：${mbti}】
 
-🟢【あなたの思考のくせ（MBTIタイプ：${mbti})】
-→ 物事の捉え方や意思決定の傾向が出てるよ。
-（MBTIごとの強みとクセを50文字以内で）
+【算命学】
+日干：${dayStem}
+五行：${element}
+守護神：${guardianSpirit}
+説明：${stemDescription}
 
+--- 
 
-🔵【算命学から見た宿命と資質】
-あなたの命式は「${dayStem}」の日干、五行は「${element}」だよ。
-守護神は「${guardianSpirit}」で、以下のような資質を持っているよ。
-${stemDescription}（50文字以内で）
+以下を600文字以内でアドバイスしてください：
+- 動物占い「${animalType}」の特徴
+- MBTI「${mbti}」の傾向
+- 五行「${element}」と守護神「${guardianSpirit}」の性質
 
----
-
-🧸【しろくまからのアドバイス】
-
-以下の3つをかけあわせて、
-「あなたらしい強み」「感じやすいズレやギャップ」「どう受け入れていけばいいか」
-を**具体的・実践的に600～800文字で**アドバイスしてください。
-
-- 動物占いの「${animalType}」の特徴
-- MBTIタイプ「${mbti}」の思考傾向
-- 五行「${element}」と守護神「${guardianSpirit}」の資質
-
-形式は、
-1. 共感 → 2. ズレの指摘 → 3. 解決策と受容 → 4. まとめ
-という4段構成で、必ず温かいトーンで書いてください。
-
----
-
-📎 この診断は、動物占い・MBTI・算命学の3つを掛け合わせてつくった、あなたのためだけの1枚。
-
-いつでもこの白くまがそばにいると思って、迷ったときはまた戻ってきてね。
+形式は：1. 共感 → 2. ズレの指摘 → 3. 解決策 → 4. まとめ
+温かい語り口で。
 `;
 
       console.log('==== PROMPT ====');
