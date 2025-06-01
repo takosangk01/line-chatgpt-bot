@@ -17,6 +17,18 @@ const client = new Client(config);
 const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json'), 'utf-8'));
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json'), 'utf-8'));
 
+// 十干（天干）リスト
+const tenStems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+
+// 西暦から簡易的に日干（十干）を求める関数（正確ではなく仮運用向け）
+function getDayStem(year, month, day) {
+  const baseDate = new Date(1900, 0, 1); // 1900/1/1 = 甲子の日
+  const targetDate = new Date(year, month - 1, day);
+  const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
+  const stemIndex = diffDays % 10;
+  return tenStems[(stemIndex + 10) % 10]; // 負の値対応
+}
+
 app.post('/webhook', middleware(config), async (req, res) => {
   const events = req.body.events;
   if (!events || events.length === 0) {
@@ -46,16 +58,18 @@ app.post('/webhook', middleware(config), async (req, res) => {
       const day = parseInt(dateMatch[3]);
       const mbti = mbtiMatch[0].toUpperCase();
 
-      // 干支番号の取得（1〜60）
-      const cycleIndex = (year - 1924) % 60;
-      const zodiacNumber = cycleIndex === 0 ? 60 : cycleIndex;
-      const animalEntry = animalMap.find(entry => entry.干支番号 === zodiacNumber);
+      // 干支番号（1924年=1）で取得（1〜60）
+      let cycleIndex = (year - 1924) % 60;
+      if (cycleIndex <= 0) cycleIndex += 60;
+      const zodiacNumber = cycleIndex;
+      const animalEntry = animalMap.find(entry => Number(entry.干支番号) === zodiacNumber);
       const animalType = animalEntry?.動物 || '不明';
       const animalDescription = animalEntry
         ? `「${animalEntry.動物}」タイプは、${animalEntry.リズム}のリズムを持ち、カラーは${animalEntry.カラー}です。`
         : '説明が見つかりません。';
 
-      const dayStem = '丙'; // 仮設定
+      // 日干を算出
+      const dayStem = getDayStem(year, month, day);
       const stemData = stemMap.find(entry => entry.day_stem === dayStem);
       const element = stemData?.element || '不明';
       const guardianSpirit = stemData?.guardian_spirit || '不明';
@@ -107,9 +121,6 @@ ${stemDescription}（300文字以内で）
 いつでもこの白くまがそばにいると思って、迷ったときはまた戻ってきてね。
 `;
 
-      console.log('==== PROMPT ====');
-      console.log(prompt);
-
       try {
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
           model: 'gpt-4',
@@ -124,9 +135,6 @@ ${stemDescription}（300文字以内で）
             'Content-Type': 'application/json'
           }
         });
-
-        console.log('==== RESPONSE ====');
-        console.log(response.data);
 
         const reply = response.data.choices[0].message.content;
         const chunks = reply.match(/.{1,1800}/g);
