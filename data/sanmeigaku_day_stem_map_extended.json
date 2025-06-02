@@ -1,82 +1,92 @@
 [
   {
-    "day_stem":"甲",
-    "element":"木",
-    "guardian_spirit":"水",
-    "description":"甲は大木の象意。真っ直ぐで正義感が強い。",
-    "compatibility":"乙・丙・癸と相性が良い",
-    "caution":"頑固になりすぎないよう注意"
+    "day_stem": "甲",
+    "element": "木",
+    "guardian_spirit": "火",
+    "sub_guardian": "土",
+    "description": "甲は陽の木で、大樹のように強くまっすぐ成長する性質を持ちます:contentReference[oaicite:0]{index=0}。自信と誇りが高く、常に他人より優位に立とうとする向上心があります:contentReference[oaicite:1]{index=1}。正直で筋を通すことを重んじ、曲がったことが嫌いな頑固さも併せ持ちます。",
+    "compatibility": "最も相性がいいとされるのは己（土の陰）で、陰陽調和の組み合わせです:contentReference[oaicite:2]{index=2}。また、水の性質を持つ壬・癸は木を育ててくれる関係で好相性です:contentReference[oaicite:3]{index=3}。一方、火の性質を持つ丙・丁とは木が燃え尽きてしまうため注意が必要で、金の性質を持つ庚・辛も木を切り倒す関係となり衝突しがちです:contentReference[oaicite:4]{index=4}。",
+    "caution": "高いプライドゆえに他人の指図を嫌いがちで、自分本位になりすぎる傾向に注意:contentReference[oaicite:5]{index=5}。一本気で融通が利かない面があり、周囲との協調を心がけないと孤立してしまう恐れがあります。"
   },
   {
-    "day_stem":"乙",
-    "element":"木",
-    "guardian_spirit":"水",
-    "description":"乙は草花の象意。柔軟で繊細、周囲との調和を重んじる。",
-    "compatibility":"甲・丁・壬と相性が良い",
-    "caution":"優柔不断になりやすいので注意"
+    "day_stem": "乙",
+    "element": "木",
+    "guardian_spirit": "火",
+    "sub_guardian": "土",
+    "description": "乙は陰の木で、小さな草木や花を象徴し、柔軟でしなやかな性質です:contentReference[oaicite:6]{index=6}。木の妹にあたり、慎重で粘り強い一面を持ちます:contentReference[oaicite:7]{index=7}。争いや変化の激しい環境では神経をすり減らしがちですが、人と協調し安定した環境で力を発揮できます:contentReference[oaicite:8]{index=8}。",
+    "compatibility": "最も相性がいいのは庚（金の陽）で、陰陽の組み合わせで補い合う関係です:contentReference[oaicite:9]{index=9}。次いで水の性質を持つ壬・癸や、火の性質を持つ丙・丁とも調和しやすいでしょう:contentReference[oaicite:10]{index=10}。逆に、乙の木を克する金の陰（辛）とは衝突が生じやすく、乙が生み出す土の陽（戊）には干渉しすぎに注意が必要です。",
+    "caution": "繊細で慎重な反面、競争やトラブルに直面すると精神的に不安定になりがちです:contentReference[oaicite:11]{index=11}。他人に頼りすぎて優柔不断になることや、自分の考えを押し出せずに埋もれてしまうことに注意しましょう:contentReference[oaicite:12]{index=12}。"
   },
   {
-    "day_stem":"丙",
-    "element":"火",
-    "guardian_spirit":"木",
-    "description":"丙は太陽の象意。明るくエネルギッシュで人を照らす力がある。",
-    "compatibility":"戊・己・辛と相性が良い",
-    "caution":"感情に振り回されないように"
+    "day_stem": "丙",
+    "element": "火",
+    "guardian_spirit": "土",
+    "sub_guardian": "金",
+    "description": "丙は陽の火で、太陽のように明るく万物を照らす炎です:contentReference[oaicite:13]{index=13}。炎の兄にあたり、朝の太陽のような活気と熱意にあふれ、社交的で開放的な性格です:contentReference[oaicite:14]{index=14}。人前で輝く環境を好み、注目を浴びることで実力を発揮します:contentReference[oaicite:15]{index=15}。",
+    "compatibility": "最も相性がいいのは辛（金の陰）で、陰陽の組み合わせにより調和する関係です:contentReference[oaicite:16]{index=16}。次いで、木の性質を持つ甲・乙（燃料となる）や、土の性質を持つ戊・己（火が生み出す）とも良い相性です:contentReference[oaicite:17]{index=17}。一方、水の性質を持つ壬・癸は火を消す相剋の関係のため慎重さが必要です:contentReference[oaicite:18]{index=18}。また、陽の金である庚は火によって溶かされる関係で、丙の勢いが強すぎると相手を傷つけてしまう可能性があります:contentReference[oaicite:19]{index=19}。",
+    "caution": "自己主張が強く、周囲の状況を無視して行動しがちな点に注意:contentReference[oaicite:20]{index=20}。感情が顔に出やすく駆け引きが苦手なため、衝動的な行動は慎み、冷静さを心がけましょう:contentReference[oaicite:21]{index=21}。"
   },
   {
-    "day_stem":"丁",
-    "element":"火",
-    "guardian_spirit":"木",
-    "description":"丁は灯火の象意。感受性が強く、内面の美しさを持つ。",
-    "compatibility":"丙・乙・癸と相性が良い",
-    "caution":"他人に合わせすぎて疲れやすい"
+    "day_stem": "丁",
+    "element": "火",
+    "guardian_spirit": "土",
+    "sub_guardian": "金",
+    "description": "丁は陰の火で、灯火のように繊細で不安定な炎です:contentReference[oaicite:22]{index=22}。火の妹にあたり、外見は静かでも内に熱を秘め、思慮深い性格を持ちます:contentReference[oaicite:23]{index=23}。タイミング次第で大きな力を発揮しますが、不利な状況では弱まりやすいという特性があります:contentReference[oaicite:24]{index=24}。",
+    "compatibility": "最も相性がいいのは壬（水の陽）で、陰陽のバランスが取れた関係になります:contentReference[oaicite:25]{index=25}。次いで、木の性質を持つ甲・乙や、土の性質を持つ戊・己とも良好な相性です:contentReference[oaicite:26]{index=26}。その反面、水の陰である癸とは火と水の相剋関係となり対立しがちであり、金の性質を持つ庚・辛も火によって溶かされてしまうため注意が必要です:contentReference[oaicite:27]{index=27}。",
+    "caution": "受け身で優しい半面、他人に合わせすぎて自分を犠牲にしないよう注意が必要です:contentReference[oaicite:28]{index=28}。心配性で大胆な決断を苦手とし:contentReference[oaicite:29]{index=29}、感情表現が率直すぎると誤解を招くため、落ち着いた対応を心がけましょう:contentReference[oaicite:30]{index=30}。"
   },
   {
-    "day_stem":"戊",
-    "element":"土",
-    "guardian_spirit":"火",
-    "description":"戊は山の象意。堅実で責任感があり、信頼される。",
-    "compatibility":"庚・癸・丙と相性が良い",
-    "caution":"自己完結しすぎないように"
+    "day_stem": "戊",
+    "element": "土",
+    "guardian_spirit": "金",
+    "sub_guardian": "水",
+    "description": "戊は陽の土で、大地や堤防の土を指し、厚みと力強さを備えています:contentReference[oaicite:31]{index=31}。土の兄にあたり、表面的な体裁を重んじ社交性に富み、環境に適応して粘り強く実績を積み上げる傾向があります:contentReference[oaicite:32]{index=32}。その一方で、自分の信念を見失ったり、人との縁が一定しない面も見受けられます:contentReference[oaicite:33]{index=33}。",
+    "compatibility": "最も相性がいいのは癸（水の陰）で、陰陽が補い合う関係です:contentReference[oaicite:34]{index=34}。次いで、火の性質を持つ丙・丁や、金の性質を持つ庚・辛とも調和しやすいでしょう:contentReference[oaicite:35]{index=35}。反対に、戊の土を消耗させる木の性質（甲・乙）との関係では、戊が支え役に回り疲弊する可能性があります。また、水の陽である壬との関係も土が濁される相剋となるため注意が必要です:contentReference[oaicite:36]{index=36}。",
+    "caution": "社交的である反面、自己本位なこだわりから肝心な目的を見失うことがあります:contentReference[oaicite:37]{index=37}。不要な事に労力を費やしがちなので、物事の取捨選択を心がけましょう:contentReference[oaicite:38]{index=38}。また、柔軟性に欠け現状に固執しすぎないよう注意が必要です:contentReference[oaicite:39]{index=39}。"
   },
   {
-    "day_stem":"己",
-    "element":"土",
-    "guardian_spirit":"火",
-    "description":"己は畑の象意。面倒見が良く、世話好き。",
-    "compatibility":"己・辛・丁と相性が良い",
-    "caution":"心配しすぎて動けなくなる傾向あり"
+    "day_stem": "己",
+    "element": "土",
+    "guardian_spirit": "金",
+    "sub_guardian": "水",
+    "description": "己は陰の土で、田畑の土壌を象徴し、戊土ほど厚くはないものの植物を育む包容力があります:contentReference[oaicite:40]{index=40}。土の妹にあたり、几帳面で規則正しく物事を進める性質ですが、度量が狭い一面も併せ持ちます:contentReference[oaicite:41]{index=41}。愛情深く人当たりが良いため組織の潤滑油となりますが、自分自身を相手に合わせて変えることが苦手で、ひとたび感情が乱れると周囲が見えなくなりがちです:contentReference[oaicite:42]{index=42}。",
+    "compatibility": "最も相性がいいのは甲（木の陽）で、陰陽調和の関係でお互いを補います:contentReference[oaicite:43]{index=43}。次いで、火の性質を持つ丙・丁や、金の性質を持つ庚・辛とも良好な相性を築きやすいでしょう:contentReference[oaicite:44]{index=44}。逆に、己の土を奪う木の陰（乙）との関係ではストレスを抱えやすく、己が抑え込む形となる水の陽（壬）との関係もバランスに注意が必要です:contentReference[oaicite:45]{index=45}。",
+    "caution": "人に合わせて自己を変えることが苦手で、頑固に自分のペースを押し通しがちな点に注意が必要です:contentReference[oaicite:46]{index=46}。感情が乱れると手段を選ばず突っ走ってしまう傾向があるため、冷静さと客観性を保つよう心がけましょう:contentReference[oaicite:47]{index=47}。"
   },
   {
-    "day_stem":"庚",
-    "element":"金",
-    "guardian_spirit":"土",
-    "description":"庚は鋼鉄の象意。意志が強く、切り開く力がある。",
-    "compatibility":"甲・乙・癸と相性が良い",
-    "caution":"衝動的な判断に注意"
+    "day_stem": "庚",
+    "element": "金",
+    "guardian_spirit": "水",
+    "sub_guardian": "木",
+    "description": "庚は陽の金で、鋼鉄や刀剣のように硬く強い性質を持ちます:contentReference[oaicite:48]{index=48}。金の兄にあたり、現実的で物質的な利益を重視し、財政手腕に長けています:contentReference[oaicite:49]{index=49}。統率力と実行力に富みますが、時に強引で独善的になり、ぬるま湯のような環境では物足りなさを感じるでしょう:contentReference[oaicite:50]{index=50}。",
+    "compatibility": "最も相性がいいのは乙（木の陰）で、干合の関係にありお互いの不足を補えます。また、土の性質を持つ戊・己は庚金を生み出す関係で心地よい相性です:contentReference[oaicite:51]{index=51}。木の性質を持つ甲・乙も庚にとって力を発揮しやすい相手で、主導権を握りやすい組み合わせでしょう:contentReference[oaicite:52]{index=52}。一方、火の性質を持つ丙・丁は金を溶かす相剋関係のため要注意で、庚が生み出す水の性質（壬・癸）に対してはエネルギーを注ぎすぎて消耗しないよう留意しましょう:contentReference[oaicite:53]{index=53}。",
+    "caution": "短気で攻撃的になりやすく、自分の意見を通すために周囲と衝突しがちな点に注意:contentReference[oaicite:54]{index=54}。柔軟性を欠くと孤立を招くため、他者の意見にも耳を傾け自制心を持つことが大切です:contentReference[oaicite:55]{index=55}。"
   },
   {
-    "day_stem":"辛",
-    "element":"金",
-    "guardian_spirit":"土",
-    "description":"辛は宝石の象意。美意識が高く、繊細で品がある。",
-    "compatibility":"辛・丙・己と相性が良い",
-    "caution":"繊細すぎて自己否定しやすい"
+    "day_stem": "辛",
+    "element": "金",
+    "guardian_spirit": "水",
+    "sub_guardian": "木",
+    "description": "辛は陰の金で、宝石や砂金のような貴金属に例えられ、磨かれてこそ光る繊細さを備えます:contentReference[oaicite:56]{index=56}。金の妹にあたり、幾多の試練を経ても大成する粘り強さを持ちますが、同時に頑固な一面もあります:contentReference[oaicite:57]{index=57}。外見は優美ですが実は傷つきやすく、細部にこだわりすぎてストレスを溜め込む傾向があるでしょう:contentReference[oaicite:58]{index=58}。",
+    "compatibility": "最も相性がいいのは丙（火の陽）で、太陽の光が宝石を輝かせるように互いを高め合える関係です:contentReference[oaicite:59]{index=59}。次いで、土の性質を持つ戊・己（金を生み出す）や、水の性質を持つ壬・癸（辛金が生み出す）とも良い相性です:contentReference[oaicite:60]{index=60}。その反面、辛の金を鈍らせる木の性質（甲・乙）との組み合わせでは折り合いに工夫が必要で、同じ金性を持つ庚との関係も張り合いやすいため注意が必要です。",
+    "caution": "神経質で疑り深いところがあり、考えすぎて動けなくなる傾向があります:contentReference[oaicite:61]{index=61}。我慢強いあまり不満やストレスを溜め込みやすいので、適度に発散することも大切です:contentReference[oaicite:62]{index=62}。また、辛の鋭い言葉は他人を傷つけることがあるため、思いやりを忘れないようにしましょう。"
   },
   {
-    "day_stem":"壬",
-    "element":"水",
-    "guardian_spirit":"金",
-    "description":"壬は大河の象意。知性豊かで器が大きい。",
-    "compatibility":"壬・庚・乙と相性が良い",
-    "caution":"理屈っぽくなり孤立しやすい"
+    "day_stem": "壬",
+    "element": "水",
+    "guardian_spirit": "木",
+    "sub_guardian": "火",
+    "description": "壬は陽の水で、大海の水を指し、包容力がありダイナミックな性質です:contentReference[oaicite:63]{index=63}。水の兄にあたり、清濁あわせ呑む懐の深さと寛大さを持ち、潜在的なパワーと包容力があります:contentReference[oaicite:64]{index=64}。一方で依存心が強く、物事に無頓着になりやすい一面もあります:contentReference[oaicite:65]{index=65}。",
+    "compatibility": "最も相性がいいのは丁（火の陰）で、木を介して水と火が調和しお互いを成長させます。次いで、金の性質を持つ庚・辛（水を生み出す）や、木の性質を持つ甲・乙（水が育てる）とも好相性です。逆に、壬の水をせき止める土の性質（戊・己）とは行き違いが生じやすく、壬水が克する火の陽（丙）との関係も水と火の相剋となるため注意が必要です:contentReference[oaicite:66]{index=66}。",
+    "caution": "大らかで寛容な反面、気分屋で責任感に欠けるところがあります。甘えん坊で人に頼りがちなため、自立心を養うことが課題です。何事も深く考えず流してしまう傾向があるので、集中力と計画性を持つよう意識しましょう。"
   },
   {
-    "day_stem":"癸",
-    "element":"水",
-    "guardian_spirit":"金",
-    "description":"癸は雨露の象意。静かで控えめだが、芯が強い。",
-    "compatibility":"癸・甲・丙と相性が良い",
-    "caution":"遠慮しすぎてチャンスを逃さないように"
+    "day_stem": "癸",
+    "element": "水",
+    "guardian_spirit": "木",
+    "sub_guardian": "火",
+    "description": "癸は陰の水で、雨露や小川の水を指し、内に生命の芽を秘めた性質です:contentReference[oaicite:67]{index=67}。水の妹にあたり、正直で勤勉であり、逆境でも道を切り拓く粘り強さを持ちます:contentReference[oaicite:68]{index=68}。内向的で秘めた思いを抱えやすく、コツコツ努力を積み重ねられる努力家です。",
+    "compatibility": "最も相性がいいのは戊（土の陽）で、陰陽の結合により安定した関係を築けます。次いで、金の性質を持つ庚・辛（水を生み出す）や、木の性質を持つ甲・乙（癸水を育てる）とも良い相性です。反対に、癸の水を克する土の陰（己）との関係では水が濁るため注意が必要です:contentReference[oaicite:69]{index=69}。癸水が生み出す木の陰（乙）に対しては、癸が力を与えすぎて消耗しないよう気をつけましょう。",
+    "caution": "内向的で感情を表に出さない反面、秘かに自分の世界を深めていく探究心があります。頑固なほど真面目で融通が利かないところがあり、周囲の助言を取り入れる柔軟さを持つことが課題です。繊細ゆえにストレスを溜め込みがちなので、適度に気分転換を図りましょう。"
   }
 ]
