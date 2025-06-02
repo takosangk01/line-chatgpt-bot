@@ -108,8 +108,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
 const summaryBlock =
   "こんにちは、白くまだよ🐻‍❄️\n" +
-  "この診断は“自分をもっと好きになる”ための“あなただけの取扱説明書”。\n" +
-  "あなたらしい毎日のヒントにしてね💭\n\n" +
+  "この診断は“自分をもっと好きになる”ための“あなただけの取扱説明書”だよ。\n" +
   "🧸 あなたの分類まとめ 🧸\n\n" +
   `📘 MBTI：${mbti}\n` +
   `🌟 動物占い：${animalType}\n` +
