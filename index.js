@@ -115,7 +115,7 @@ const summaryBlock = `こんにちは、白くまだよ🐻‍❄️
 📘 MBTI：${mbti}
 🌟 動物占い：${animalType}
 🌿 算命学（日干）：${dayStem}
-→ 五行：${element}｜守護神：${guardianSpirit}
+→ 五行：${element}｜守護神：${guardianSpirit}`; 
 
     const prompt = `
 この診断の冒頭に、以下のテンプレートを**絶対にそのまま**出力してください（絵文字・記号・改行含む）：
