@@ -1,4 +1,3 @@
-
 {
   "name": "line-chatgpt-diagnosis-template",
   "version": "1.0.0",
@@ -10,6 +9,7 @@
   "dependencies": {
     "@line/bot-sdk": "^7.5.0",
     "axios": "^1.3.5",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "dotenv": "^16.0.0"  // ← ここを追加！
   }
 }
