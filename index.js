@@ -81,6 +81,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
     const month = parseInt(dateMatch[2]);
     const day = parseInt(dateMatch[3]);
     const mbti = mbtiMatch[0].toUpperCase();
+    const mbtiOneLiner = mbtiDescriptions[mbti] || '説明が見つかりません';
 
     const zodiacNumber = getCorrectEtoIndex(year, month, day);
     console.log(`干支番号: ${zodiacNumber}`);
