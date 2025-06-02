@@ -14,13 +14,13 @@ const config = {
 
 const client = new Client(config);
 
-// JSONファイル読み込み（Renderで正しく読める場所に置くこと）
+// JSONファイル読み込み
 const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json'), 'utf-8'));
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json'), 'utf-8'));
 
-// 🐾 干支番号算出（基準日：1984/2/2 立春 → 干支番号1）
+// ✅ 干支番号計算：基準日を1986/2/4に修正
 function getCorrectEtoIndex(year, month, day) {
-  const baseDate = new Date(1984, 1, 2); // 月は0始まり: 1 → 2月
+  const baseDate = new Date(1986, 1, 4); // 月は0始まり
   const targetDate = new Date(year, month - 1, day);
   const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
   return ((diffDays % 60 + 60) % 60) + 1;
@@ -54,7 +54,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
     const mbti = mbtiMatch[0].toUpperCase();
 
     const zodiacNumber = getCorrectEtoIndex(year, month, day);
-    console.log(`干支番号: ${zodiacNumber}`); // ← デバッグ確認用
+    console.log(`干支番号: ${zodiacNumber}`);
 
     const animalEntry = animalMap.find(entry => parseInt(entry.干支番号) === zodiacNumber);
     const animalType = animalEntry?.動物 || '不明';
@@ -62,7 +62,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
       ? `「${animalEntry.動物}」タイプは、${animalEntry.リズム}のリズムを持ち、カラーは${animalEntry.カラー}です。`
       : '説明が見つかりません。';
 
-    const dayStem = '丙'; // 今後自動化
+    const dayStem = '丙'; // 今後自動取得に変更予定
     const stemData = stemMap.find(entry => entry.day_stem === dayStem);
     const element = stemData?.element || '不明';
     const guardianSpirit = stemData?.guardian_spirit || '不明';
