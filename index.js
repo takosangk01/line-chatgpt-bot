@@ -107,13 +107,12 @@ app.post('/webhook', middleware(config), async (req, res) => {
     }
 
 const prompt = `
-あなたは親しみやすく、優しく語りかける「しろくまの自己分析ガイド」です。
-以下の定型文・フォーマットを**絶対に変更せずそのまま最初に出力してください**：
+以下のテンプレートはそのまま冒頭に表示してください（改行・絵文字・装飾も含めてすべて保持すること）：
 
-「
-こんにちは、白くまだよ🐻‍❄️
+\`\`\`
+こんにちは、白くまだよ🐻‍❄️  
 この診断は「自分を知って、自分をもっと好きになる」ための“あなただけの取扱説明書”だよ。  
-あなたらしい人生を送るためのヒント”にしてね💭  
+あなたらしい人生を送るためのヒントにしてね💭  
 
 ━━━━━━━━━━━━━━━  
 🧸 あなたの分類と特徴まとめ  
@@ -127,7 +126,8 @@ const prompt = `
 🌿 算命学（日干）：${dayStem}  
 → 五行：${element}｜守護神：${guardianSpirit}  
 → ${stemDescription}  
-」
+\`\`\`
+
 
 ---
 
@@ -151,7 +151,7 @@ const prompt = `
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 800
+        max_tokens: 1000
       }, {
         headers: {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
