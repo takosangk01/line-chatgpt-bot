@@ -114,18 +114,13 @@ const prompt = `
 この診断は「自分を知って、自分をもっと好きになる」ための“あなただけの取扱説明書”だよ。  
 あなたらしい人生を送るためのヒントにしてね💭  
 
-━━━━━━━━━━━━━━━  
-🧸 あなたの分類と特徴まとめ  
-━━━━━━━━━━━━━━━  
+
+🧸🧸 あなたの分類と特徴まとめ🧸🧸
+
 📘 MBTI：${mbti}  
-→ ${mbtiOneLiner}  
-
 🌟 動物占い：${animalType}  
-→ ${animalDescriptionShort}  
-
 🌿 算命学（日干）：${dayStem}  
 → 五行：${element}｜守護神：${guardianSpirit}  
-→ ${stemDescription}  
 \`\`\`
 
 
