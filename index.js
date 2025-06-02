@@ -14,20 +14,16 @@ const config = {
 
 const client = new Client(config);
 
-// JSONファイル読み込み
-const animalMapRaw = fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json'), 'utf-8');
-console.log("✅ 読み込んだ動物占いJSON:", animalMapRaw.slice(0, 300)); // 確認用
-const animalMap = JSON.parse(animalMapRaw);
-
+// JSONファイル読み込み（Renderで正しく読める場所に置くこと）
+const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json'), 'utf-8'));
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json'), 'utf-8'));
 
-// 干支番号計算（1984年2月2日立春を1番とする）
+// 🐾 干支番号算出（基準日：1984/2/2 立春 → 干支番号1）
 function getCorrectEtoIndex(year, month, day) {
+  const baseDate = new Date(1984, 1, 2); // 月は0始まり: 1 → 2月
   const targetDate = new Date(year, month - 1, day);
-  const baseDate = new Date(1984, 1, 2); // 1984年2月2日（甲子の日）
   const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
-  const index = ((diffDays % 60 + 60) % 60) + 1;
-  return index;
+  return ((diffDays % 60 + 60) % 60) + 1;
 }
 
 app.post('/webhook', middleware(config), async (req, res) => {
@@ -58,13 +54,15 @@ app.post('/webhook', middleware(config), async (req, res) => {
     const mbti = mbtiMatch[0].toUpperCase();
 
     const zodiacNumber = getCorrectEtoIndex(year, month, day);
-    const animalEntry = animalMap.find(entry => entry.干支番号 === zodiacNumber);
+    console.log(`干支番号: ${zodiacNumber}`); // ← デバッグ確認用
+
+    const animalEntry = animalMap.find(entry => parseInt(entry.干支番号) === zodiacNumber);
     const animalType = animalEntry?.動物 || '不明';
     const animalDescription = animalEntry
       ? `「${animalEntry.動物}」タイプは、${animalEntry.リズム}のリズムを持ち、カラーは${animalEntry.カラー}です。`
       : '説明が見つかりません。';
 
-    const dayStem = '丙'; // 今後は日干を自動算出予定
+    const dayStem = '丙'; // 今後自動化
     const stemData = stemMap.find(entry => entry.day_stem === dayStem);
     const element = stemData?.element || '不明';
     const guardianSpirit = stemData?.guardian_spirit || '不明';
@@ -94,10 +92,6 @@ app.post('/webhook', middleware(config), async (req, res) => {
 - 五行「${element}」と守護神「${guardianSpirit}」の性質
 形式は：1. 共感 → 2. ズレの指摘 → 3. 解決策 → 4. まとめ
 語り口は温かく、白くまが語るように。`;
-
-    console.log("==== PROMPT ====");
-    console.log(prompt);
-    console.log("Prompt length:", prompt.length);
 
     try {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -135,4 +129,4 @@ app.post('/webhook', middleware(config), async (req, res) => {
   res.status(200).send('OK');
 });
 
-app.listen(3000, () => console.log('Server is running'));
+app.listen(3000, () => console.log('✅ Server is running on port 3000'));
