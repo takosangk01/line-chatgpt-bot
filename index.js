@@ -19,12 +19,14 @@ const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corre
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json'), 'utf-8'));
 
 // ✅ 干支番号計算：基準日を1986/2/4に修正
-function getCorrectEtoIndex(year, month, day) {
-  const baseDate = new Date(1986, 1, 4); // 月は0始まり
+function getDayStem(year, month, day) {
+  const baseDate = new Date(1873, 0, 12); // 1873年1月12日「甲子」
   const targetDate = new Date(year, month - 1, day);
   const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
-  return ((diffDays % 60 + 60) % 60) + 1;
+  const tenStems = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+  return tenStems[(diffDays % 10 + 10) % 10];
 }
+
 
 app.post('/webhook', middleware(config), async (req, res) => {
   const events = req.body.events;
