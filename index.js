@@ -114,8 +114,7 @@ const summaryBlock =
   `📘 MBTI：${mbti}\n` +
   `🌟 動物占い：${animalType}\n` +
   `🌿 算命学（日干）：${dayStem}\n` +
-  `→ 五行：${element}｜守護神：${guardianSpirit}\n` +
-  ;
+  `→ 五行：${element}｜守護神：${guardianSpirit}\n`;
     const prompt = `
 この診断の冒頭に、以下のテンプレートを**絶対にそのまま**出力してください（絵文字・記号）：
 ※このテンプレート部分は、LINEで1通のメッセージとして送るため、**途中でメッセージを分割しないでください。**
