@@ -106,7 +106,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
       continue;
     }
 
-    const summaryBlock = `こんにちは、白くまだよ🐻‍❄️
+const summaryBlock = `こんにちは、白くまだよ🐻‍❄️
 この診断は「自分を知って、自分をもっと好きになる」ための“あなただけの取扱説明書”だよ。
 あなたらしい人生を送るためのヒントにしてね💭
 
@@ -115,13 +115,13 @@ app.post('/webhook', middleware(config), async (req, res) => {
 📘 MBTI：${mbti}
 🌟 動物占い：${animalType}
 🌿 算命学（日干）：${dayStem}
-→ 五行：${element}｜守護神：${guardianSpirit}`; 
+→ 五行：${element}｜守護神：${guardianSpirit}
 
     const prompt = `
-以下のテンプレートを冒頭に表示してください（装飾や絵文字も含めて変更しないでください）：
+この診断の冒頭に、以下のテンプレートを**絶対にそのまま**出力してください（絵文字・記号・改行含む）：
 
+----
 ${summaryBlock}
-
 ---
 
 このあとに、800文字以内で以下の流れに沿ったアドバイスを続けてください。
