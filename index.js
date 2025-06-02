@@ -116,7 +116,7 @@ const summaryBlock =
   `🌿 算命学：${dayStem}（五行：${element}｜守護神：${guardianSpirit}）`;
     
     const prompt = `
-このsummaryBlockを絶対に分割せず、また**絶対にそのまま**出力して（絵文字・記号）、1メッセージとして保持してLINEに出力してください。
+このsummaryBlockを絶対にそのまま出力して（絵文字・記号）、また絶対に分割せず1メッセージとして保持してLINEに出力してください。
 以下がその内容です：
 ----
 ${summaryBlock}
