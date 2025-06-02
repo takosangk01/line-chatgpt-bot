@@ -109,7 +109,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
 const summaryBlock =
   "こんにちは、白くまだよ🐻‍❄️\n" +
   "この診断は“自分をもっと好きになる”ための“あなただけの取扱説明書”だよ。\n" +
-  "🧸 あなたの分類まとめ 🧸\n\n" +
+  "🧸 診断まとめ 🧸\n\n" +
   `📘 MBTI：${mbti}\n` +
   `🌟 動物占い：${animalType}\n` +
   `🌿 算命学：${dayStem}（五行：${element}｜守護神：${guardianSpirit}）`;
@@ -118,11 +118,11 @@ const summaryBlock =
 このsummaryBlockを絶対にそのまま出力してください（絵文字・記号）。
 またこのsummaryBlockは絶対に分割せず、1メッセージとして保持してLINEに出力してください。
 以下がその内容です：
-----
 ${summaryBlock}
-----
 
-このあとに、800文字以内で以下の流れに沿ったアドバイスを続けてください。
+
+ここから下は別メッセージです。
+800文字以内で以下の流れに沿ったアドバイスを続けてください。
 
 1. 共感から始める
 2. 3つの診断から「本質と今の性格のズレ」を伝える
@@ -140,7 +140,7 @@ ${summaryBlock}
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 1200
+        max_tokens: 1000
       }, {
         headers: {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
