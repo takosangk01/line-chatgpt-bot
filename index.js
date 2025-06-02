@@ -87,9 +87,9 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
     const animalEntry = animalMap.find(entry => parseInt(entry.干支番号) === zodiacNumber);
     const animalType = animalEntry?.動物 || '不明';
-    const animalDescription = animalEntry
-      ? `「${animalEntry.動物}」タイプは、${animalEntry.リズム}のリズムを持ち、カラーは${animalEntry.カラー}です。`
-      : '説明が見つかりません。';
+    const animalDescriptionShort = animalEntry
+  ? `${animalEntry.リズム}のリズム／カラー：${animalEntry.カラー}`
+  : '説明なし';
 
     const dayStem = getDayStem(year, month, day); // ← 修正済み
     const stemData = stemMap.find(entry => entry.day_stem === dayStem);
@@ -105,7 +105,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
       continue;
     }
 
-    const prompt = `
+const prompt = `
 こんにちは、白くまだよ☃️
 この診断は「自分を知って、自分をもっと好きになる」ための“あなただけの取扱説明書”だよ。
 
@@ -115,7 +115,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
 → ${mbtiOneLiner}
 
 🌟 動物占い：${animalType}
-→ ${animalDescription}
+→ ${animalDescriptionShort}
 
 🌿 算命学（日干）：${dayStem}
 → 五行：${element}｜守護神：${guardianSpirit}
@@ -125,11 +125,10 @@ app.post('/webhook', middleware(config), async (req, res) => {
 - ${animalType}タイプの特徴（端的に）
 - ${mbti}の傾向
 - 五行「${element}」×守護神「${guardianSpirit}」の性質
-- 見やすく、やさしく、女性向けに構成
--３つの診断を掛け合わせて俯瞰してみたときに、生まれ持った性質と今の性格を掛け合わせ、どんなズレがありそうで、それをどう解決したらいいかを優しく書いて
-- 最後に、しろくまの言葉で前向きに締めて！
+- ３つの診断を俯瞰し、「今のあなた」と「本来の性質」にどんなズレがあり、どう補えばいいか
+- 最後に、前向きであたたかいメッセージを白くまの語り口で
 
-※文字数は800文字以内で、わかりやすく簡潔にお願いします。`
+※文字数は800文字以内。女性向けで、やさしく、読みやすく、感情が動くように書いてください。
 `;
 
     try {
