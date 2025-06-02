@@ -111,10 +111,10 @@ app.post('/webhook', middleware(config), async (req, res) => {
       "この診断は「自分を知って、自分をもっと好きになる」ための“あなただけの取扱説明書”だよ。\n" +
       "あなたらしい人生を送るためのヒントにしてね💭\n\n" +
       "🧸 あなたの分類と特徴まとめ🧸\n\n" +
-      `📘 MBTI：${mbti}\n→ ${mbtiOneLiner}\n\n🌟 動物占い：${animalType}\n→ ${animalDescriptionShort}\n\n🌿 算命学（日干）：${dayStem}\n→ 五行：${element}｜守護神：${guardianSpirit}\n→ ${stemDescription}`;
+      `📘 MBTI：${mbti}\n🌟 動物占い：${animalType}\n🌿 算命学（日干）：${dayStem}\n→ 五行：${element}｜守護神：${guardianSpirit}`;
 
     const prompt = `
-このsummaryBlockを絶対に分割せず、1メッセージとして保持してLINEに出力してください。
+このsummaryBlockを絶対に分割せず、また**絶対にそのまま**出力して（絵文字・記号）、1メッセージとして保持してLINEに出力してください。
 以下がその内容です：
 ----
 ${summaryBlock}
