@@ -115,7 +115,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
 📘 MBTI：${mbti}
 🌟 動物占い：${animalType}
 🌿 算命学（日干）：${dayStem}
-→ 五行：${element}｜守護神：${guardianSpirit}
+→ 五行：${element}｜守護神：${guardianSpirit}`; 
 
     const prompt = `
 以下のテンプレートを冒頭に表示してください（装飾や絵文字も含めて変更しないでください）：
