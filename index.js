@@ -140,7 +140,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 1200
+        max_tokens: 800
       }, {
         headers: {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -149,7 +149,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
       });
 
       const reply = response.data.choices[0].message.content;
-      const chunks = reply.match(/(.|[\r\n]){1,1500}/g).slice(0, 5);
+      const chunks = reply.match(/.{1,1800}/g).slice(0, 5);
       const messages = chunks.map(chunk => ({
         type: 'text',
         text: chunk
