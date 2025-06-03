@@ -106,13 +106,14 @@ app.post('/webhook', middleware(config), async (req, res) => {
       continue;
     }
 
-const summaryBlock =
-  "こんにちは、白くまだよ🐻‍❄️\n" +
-  "この診断は“自分をもっと好きになる”ための“あなただけの取扱説明書”だよ。\n" +
-  "🧸 診断まとめ 🧸\n\n" +
-  `📘 MBTI：${mbti}\n` +
-  `🌟 動物占い：${animalType}\n` +
-  `🌿 算命学：${dayStem}（五行：${element}｜守護神：${guardianSpirit}）`;
+const summaryBlock = 
+  `こんにちは、白くまだよ🐻‍❄️
+この診断は“自分をもっと好きになる”ための“あなただけの取扱説明書”だよ。
+🧸 診断まとめ 🧸
+
+📘 MBTI：${mbti}
+🌟 動物占い：${animalType}
+🌿 算命学：${dayStem}（五行：${element}｜守護神：${guardianSpirit}）`;
     
     const prompt = `
 あなたは親しみやすい自己分析ガイドである白くまです。
