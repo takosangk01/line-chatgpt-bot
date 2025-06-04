@@ -117,8 +117,8 @@ const summaryBlock = `こんにちは、白くまだよ🐻‍❄️
     const prompt = `
 あなたは親しみやすい自己分析ガイドである白くまです。
 
-以下の診断summaryBlockを **LINE Bot の text フィールドにそのまま渡す用の1つの文字列**として、絶対に分割せず返してください。  
-このテンプレート部分には \n による改行は含めてOKですが、**行ごとにバラバラに分けたり、複数メッセージにせず、1つのメッセージとしてまとめてください。**
+以下の診断summaryBlockを LINE Bot の text フィールドにそのまま渡す用の1つの文字列として、絶対に分割せず返してください。  
+このテンプレート部分には \n による改行は含めてOKですが、行ごとにバラバラに分けたり、複数メッセージにせず、1つのメッセージとしてまとめてください。
 
 ${summaryBlock}
 
@@ -142,7 +142,7 @@ ${summaryBlock}
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 1000
+        max_tokens: 2000
       }, {
         headers: {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
