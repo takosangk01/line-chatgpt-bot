@@ -4,6 +4,8 @@ const { Client, middleware } = require('@line/bot-sdk');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { generatePDF } = require('./pdfGenerator');
+const { uploadPDF } = require('./uploader');
 
 const app = express();
 
@@ -14,46 +16,23 @@ const config = {
 
 const client = new Client(config);
 
-// JSONファイル読み込み
 const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json'), 'utf-8'));
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json'), 'utf-8'));
 
-// 干支番号計算：基準日を1986/2/4に修正
 function getCorrectEtoIndex(year, month, day) {
-  const baseDate = new Date(1986, 1, 4); // 月は0始まり
+  const baseDate = new Date(1986, 1, 4);
   const targetDate = new Date(year, month - 1, day);
   const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
   return ((diffDays % 60 + 60) % 60) + 1;
 }
 
-// 日干を算出する関数
 function getDayStem(year, month, day) {
-  const baseDate = new Date(1873, 0, 12); // 1873年1月12日「甲子」
+  const baseDate = new Date(1873, 0, 12);
   const targetDate = new Date(year, month - 1, day);
   const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
   const tenStems = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
   return tenStems[(diffDays % 10 + 10) % 10];
 }
-
-// ▼ MBTIタイプごとの説明マップ（事前定義）
-const mbtiDescriptions = {
-  ENFP: '情熱的で自由を愛する冒険家タイプ',
-  INFP: '内向的で理想を追い求めるロマンチスト',
-  INFJ: '深い共感力と洞察力を持つ導き手',
-  ENFJ: '人を育て導くカリスマリーダー',
-  INTJ: '戦略家タイプ、未来を見据える思考家',
-  ENTJ: '決断力に優れた生まれながらのリーダー',
-  INTP: '理論派で好奇心旺盛な分析者',
-  ENTP: '創造的でアイデア豊富な挑戦者',
-  ISFP: '感性豊かで自由を愛するアーティスト',
-  ESFP: '楽しく場を盛り上げるムードメーカー',
-  ISTP: '冷静で現実的な職人タイプ',
-  ESTP: '行動派で刺激を求める冒険者',
-  ISFJ: '献身的で人を支える縁の下の力持ち',
-  ESFJ: '人を思いやる協調型リーダー',
-  ISTJ: '責任感が強く真面目な実務家',
-  ESTJ: '秩序を重んじるしっかり者の管理者'
-};
 
 app.post('/webhook', middleware(config), async (req, res) => {
   const events = req.body.events;
@@ -63,8 +42,8 @@ app.post('/webhook', middleware(config), async (req, res) => {
     if (event.type !== 'message' || event.message.type !== 'text') continue;
 
     const userInput = event.message.text;
-    const dateRegex = /(\d{4})年?(\d{1,2})月?(\d{1,2})日?/;
-    const mbtiRegex = /\b(INFP|ENFP|INFJ|ENFJ|INTP|ENTP|INTJ|ENTJ|ISFP|ESFP|ISTP|ESTP|ISFJ|ESFJ|ISTJ|ESTJ)\b/i;
+    const dateRegex = /(\\d{4})年?(\\d{1,2})月?(\\d{1,2})日?/;
+    const mbtiRegex = /\\b(INFP|ENFP|INFJ|ENFJ|INTP|ENTP|INTJ|ENTJ|ISFP|ESFP|ISTP|ESTP|ISFJ|ESFJ|ISTJ|ESTJ)\\b/i;
 
     const dateMatch = userInput.match(dateRegex);
     const mbtiMatch = userInput.match(mbtiRegex);
@@ -81,60 +60,26 @@ app.post('/webhook', middleware(config), async (req, res) => {
     const month = parseInt(dateMatch[2]);
     const day = parseInt(dateMatch[3]);
     const mbti = mbtiMatch[0].toUpperCase();
-    const mbtiOneLiner = mbtiDescriptions[mbti] || '説明が見つかりません';
 
     const zodiacNumber = getCorrectEtoIndex(year, month, day);
-    console.log(`干支番号: ${zodiacNumber}`);
-
     const animalEntry = animalMap.find(entry => parseInt(entry.干支番号) === zodiacNumber);
     const animalType = animalEntry?.動物 || '不明';
-    const animalDescriptionShort = animalEntry
-  ? `${animalEntry.リズム}のリズム／カラー：${animalEntry.カラー}`
-  : '説明なし';
 
-    const dayStem = getDayStem(year, month, day); // ← 修正済み
+    const dayStem = getDayStem(year, month, day);
     const stemData = stemMap.find(entry => entry.day_stem === dayStem);
     const element = stemData?.element || '不明';
     const guardianSpirit = stemData?.guardian_spirit || '不明';
-    const stemDescription = stemData?.description || '説明が見つかりません。';
 
-    if (animalType === '不明' || element === '不明' || guardianSpirit === '不明') {
-      await client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '診断情報が正しく取得できませんでした。別の生年月日で試してみてね！'
-      });
-      continue;
-    }
+    const summaryBlock = `MBTI：${mbti}\\n動物占い：${animalType}\\n算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
 
-const summaryBlock = `こんにちは、白くまだよ🐻‍❄️
-この診断は“自分をもっと好きになる”ための“あなただけの取扱説明書”だよ。
-🧸 診断まとめ 🧸
-
-📘 MBTI：${mbti}
-🌟 動物占い：${animalType}
-🌿 算命学：${dayStem}（五行：${element}｜守護神：${guardianSpirit}）`;
-    
-    const prompt = `
-以下のsummaryBlockを LINE Bot の text フィールドにそのまま渡す用の1つの文字列として、絶対に分割せず返してください。  
-summaryBlockの中身について、行ごとにバラバラに分けたり複数メッセージにせず、1つのメッセージとしてまとめてください。
-${summaryBlock}
-
-
-ここから下は1000文字以内で以下の流れに沿ったアドバイスを続けてください。
-・MBTI/算命学/動物占いのそれぞれの要素を理解て、分析をしてください。
-・女性に対してのメッセージなので、絵文字とかも使いながらわかりやすさを大切に
-・語尾は「〜だよ」「〜してみてね」などやさしい口調で。女性向けに、感情が動くように書いてください。
-`;
+    const prompt = `${summaryBlock}\\nこの内容をもとに女性向けにやさしくPDF形式のアドバイス文を800文字以内で作成してください。`;
 
     try {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
         model: 'gpt-4',
-        messages: [
-          { role: 'system', content: 'あなたは親しみやすい自己分析ガイドである白くまです。' },
-          { role: 'user', content: prompt }
-        ],
+        messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 1500
       }, {
         headers: {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -142,19 +87,20 @@ ${summaryBlock}
         }
       });
 
-      const reply = response.data.choices[0].message.content;
-      const chunks = reply.match(/.{1,1800}/g).slice(0, 5);
-      const messages = chunks.map(chunk => ({
-        type: 'text',
-        text: chunk
-      }));
+      const advice = response.data.choices[0].message.content;
+      const filename = `${event.source.userId}_${Date.now()}.pdf`;
+      const filepath = await generatePDF(summaryBlock, advice, filename);
+      const fileUrl = await uploadPDF(filepath);
 
-      await client.replyMessage(event.replyToken, messages);
-    } catch (error) {
-      console.error('OpenAI API error:', JSON.stringify(error.response?.data || error.message, null, 2));
+      await client.replyMessage(event.replyToken, [
+        { type: 'text', text: '診断結果のPDFが完成したよ✨' },
+        { type: 'text', text: fileUrl }
+      ]);
+    } catch (err) {
+      console.error(err);
       await client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '診断中にエラーが発生しました。もう一度試してみてね！'
+        text: 'エラーが発生しちゃったみたい。もう一度試してみてね。'
       });
     }
   }
