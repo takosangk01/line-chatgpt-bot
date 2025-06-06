@@ -7,7 +7,7 @@ cloudinary.config({
 
 async function uploadPDF(filePath) {
   const result = await cloudinary.uploader.upload(filePath, {
-    resource_type: 'raw',
+    resource_type: 'auto',
     folder: 'shirokuma_reports',
     use_filename: true,
     unique_filename: false,
