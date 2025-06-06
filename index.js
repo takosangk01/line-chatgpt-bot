@@ -34,6 +34,27 @@ function getDayStem(year, month, day) {
   return tenStems[(diffDays % 10 + 10) % 10];
 }
 
+// 入力文字列から生年月日とMBTIを抽出
+function extractDateAndMBTI(input) {
+  const normalized = input.replace(/[／\/]/g, '年').replace(/[月.]/g, '月').replace(/[日\s]/g, '日')
+                          .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+  const dateRegex = /(\d{4})年(\d{1,2})月(\d{1,2})日/;
+  const mbtiRegex = /\b(INFP|ENFP|INFJ|ENFJ|INTP|ENTP|INTJ|ENTJ|ISFP|ESFP|ISTP|ESTP|ISFJ|ESFJ|ISTJ|ESTJ)\b/i;
+
+  const dateMatch = normalized.match(dateRegex);
+  const mbtiMatch = input.match(mbtiRegex);
+
+  if (dateMatch && mbtiMatch) {
+    return {
+      year: parseInt(dateMatch[1]),
+      month: parseInt(dateMatch[2]),
+      day: parseInt(dateMatch[3]),
+      mbti: mbtiMatch[0].toUpperCase()
+    };
+  }
+  return null;
+}
+
 app.post('/webhook', middleware(config), async (req, res) => {
   const events = req.body.events;
   if (!events || events.length === 0) return res.status(200).send('No events');
@@ -41,26 +62,18 @@ app.post('/webhook', middleware(config), async (req, res) => {
   for (const event of events) {
     if (event.type !== 'message' || event.message.type !== 'text') continue;
 
-    const userInput = event.message.text;
-    const dateRegex = /(\\d{4})年?(\\d{1,2})月?(\\d{1,2})日?/;
-    const mbtiRegex = /\\b(INFP|ENFP|INFJ|ENFJ|INTP|ENTP|INTJ|ENTJ|ISFP|ESFP|ISTP|ESTP|ISFJ|ESFJ|ISTJ|ESTJ)\\b/i;
+    const input = event.message.text;
+    const extracted = extractDateAndMBTI(input);
 
-    const dateMatch = userInput.match(dateRegex);
-    const mbtiMatch = userInput.match(mbtiRegex);
-
-    if (!dateMatch || !mbtiMatch) {
+    if (!extracted) {
       await client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '生年月日（例：1996年4月24日）とMBTI（例：ENFP）を一緒に送ってね！'
+        text: '生年月日（例：1996年4月24日）とMBTI（例：ENFP）を一緒に送ってね！改行してもOKだよ。'
       });
       continue;
     }
 
-    const year = parseInt(dateMatch[1]);
-    const month = parseInt(dateMatch[2]);
-    const day = parseInt(dateMatch[3]);
-    const mbti = mbtiMatch[0].toUpperCase();
-
+    const { year, month, day, mbti } = extracted;
     const zodiacNumber = getCorrectEtoIndex(year, month, day);
     const animalEntry = animalMap.find(entry => parseInt(entry.干支番号) === zodiacNumber);
     const animalType = animalEntry?.動物 || '不明';
@@ -70,9 +83,19 @@ app.post('/webhook', middleware(config), async (req, res) => {
     const element = stemData?.element || '不明';
     const guardianSpirit = stemData?.guardian_spirit || '不明';
 
-    const summaryBlock = `MBTI：${mbti}\\n動物占い：${animalType}\\n算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
+    if (animalType === '不明' || element === '不明' || guardianSpirit === '不明') {
+      await client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '診断情報が取得できなかったよ。他の生年月日で試してみてね。'
+      });
+      continue;
+    }
 
-    const prompt = `${summaryBlock}\\nこの内容をもとに女性向けにやさしくPDF形式のアドバイス文を800文字以内で作成してください。`;
+    const summaryBlock = `📘 MBTI：${mbti}
+🌟 動物占い：${animalType}
+🌿 算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
+
+    const prompt = `${summaryBlock}\nこの内容をもとに女性向けにやさしくPDF形式のアドバイス文を800文字以内で作成してください。`;
 
     try {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -97,7 +120,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
         { type: 'text', text: fileUrl }
       ]);
     } catch (err) {
-      console.error(err);
+      console.error('Error:', err);
       await client.replyMessage(event.replyToken, {
         type: 'text',
         text: 'エラーが発生しちゃったみたい。もう一度試してみてね。'
