@@ -95,7 +95,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
 🌟 動物占い：${animalType}
 🌿 算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
 
-    const prompt = `${summaryBlock}\nこの内容をもとに女性向けにやさしくPDF形式のアドバイス文を800文字以内で作成してください。`;
+    const prompt = `${summaryBlock}\nこの内容をもとに女性向けにやさしくPDF形式のアドバイス文を2400文字以内で作成してください。`;
 
     try {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
