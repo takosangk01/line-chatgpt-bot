@@ -4,19 +4,23 @@ const path = require('path');
 
 function generatePDF(summary, advice, fileName) {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument();
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
     const outputDir = path.join(__dirname, 'output');
 
-    // 出力フォルダが存在しない場合は作成
+    // 出力フォルダがなければ作成
     if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir);
+      fs.mkdirSync(outputDir, { recursive: true });
     }
 
     const filePath = path.join(outputDir, fileName);
     const stream = fs.createWriteStream(filePath);
 
-    // 日本語フォントを登録（.ttf）
+    // 日本語フォントのパス
     const fontPath = path.join(__dirname, 'fonts', 'NotoSansJP-Regular.ttf');
+    if (!fs.existsSync(fontPath)) {
+      return reject(new Error('フォントファイルが見つかりません: ' + fontPath));
+    }
+
     doc.registerFont('NotoSans', fontPath);
     doc.font('NotoSans');
 
@@ -24,14 +28,14 @@ function generatePDF(summary, advice, fileName) {
 
     // タイトル
     doc.fontSize(18).text('🧸 あなただけの取扱説明書', { align: 'center' });
-    doc.moveDown();
+    doc.moveDown(1.5);
 
-    // Summaryブロック
-    doc.fontSize(12).text(summary, { lineGap: 4 });
-    doc.moveDown();
+    // Summary
+    doc.fontSize(12).text(summary, { lineGap: 6 });
+    doc.moveDown(1.5);
 
-    // アドバイス本文
-    doc.text(advice, { lineGap: 4 });
+    // Advice
+    doc.text(advice, { lineGap: 6 });
 
     doc.end();
 
