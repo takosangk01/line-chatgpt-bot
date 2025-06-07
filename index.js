@@ -16,7 +16,6 @@ const config = {
 
 const client = new Client(config);
 
-// データ読み込み
 const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json'), 'utf-8'));
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json'), 'utf-8'));
 const shirokumaProfile = JSON.parse(fs.readFileSync(path.join(__dirname, 'shirokumaProfile.json'), 'utf-8'));
@@ -36,7 +35,6 @@ function getDayStem(year, month, day) {
   return tenStems[(diffDays % 10 + 10) % 10];
 }
 
-// 生年月日とMBTIを抽出
 function extractDateAndMBTI(input) {
   const normalized = input.replace(/[／\/]/g, '年').replace(/[月.]/g, '月').replace(/[日\s]/g, '日')
                           .replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
@@ -97,15 +95,29 @@ app.post('/webhook', middleware(config), async (req, res) => {
 🌟 動物占い：${animalType}
 🌿 算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
 
-    // ChatGPTプロンプトをキャラ設定と組み合わせる
-    const prompt = `${shirokumaProfile.usePromptTemplate}\n\n${summaryBlock}\n\nこの診断内容を踏まえて、${shirokumaProfile.audience}に向けて${shirokumaProfile.goal}ようなアドバイス文を2400文字以内で作ってください。\n語り口は以下の特徴に従ってください：\n${shirokumaProfile.tone}\n禁止事項：${shirokumaProfile.rules.join('／')}`;
+    const prompt = `
+🐻‍❄️ あなたは「しろくまさん」というキャラクターです。以下のキャラ設定に基づいて、PDF出力用の診断文章を女性向けに優しく作成してください。
+
+【キャラ設定】
+${shirokumaProfile.プロンプト}
+
+【構成指示】
+- MBTI/ 動物占い/ 算命学の３つの診断自体と診断結果のそれぞれの特徴を出して！
+- この３つの観点から考えて、どんなギャップがあるのか、またどんな課題や問題が起こる可能性があり、どのように解決をするべきなのか
+- 年度によっての運気の流れと性格を見て、中期的にどのように行動をするべきなのか
+- まとめの文章をかなり長文で書いてユーザーの満足度を担保して！
+
+【診断データ】
+${summaryBlock}
+
+    `;
 
     try {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
         model: 'gpt-4',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
-        max_tokens: 1500
+        max_tokens: 1800
       }, {
         headers: {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -113,8 +125,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
         }
       });
 
-      const advice = `${shirokumaProfile.intro}\n\n${summaryBlock}\n\n${response.data.choices[0].message.content}\n\n${shirokumaProfile.closing}`;
-
+      const advice = response.data.choices[0].message.content;
       const filename = `${event.source.userId}_${Date.now()}.pdf`;
       const filepath = await generatePDF(summaryBlock, advice, filename);
       const fileUrl = await uploadPDF(filepath);
