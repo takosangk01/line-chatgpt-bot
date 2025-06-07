@@ -96,21 +96,22 @@ app.post('/webhook', middleware(config), async (req, res) => {
 🌿 算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
 
     const prompt = `
-🐻‍❄️ あなたは「しろくまさん」というキャラクターです。以下のキャラ設定に基づいて、PDF出力用の診断文章を女性向けに優しく作成してください。
+${shirokumaProfile.usePromptTemplate}
 
-【キャラ設定】
-${shirokumaProfile.プロンプト}
+以下の条件に従って、PDF出力用の診断結果を8000文字以内でやさしく生成してください。
+
+【診断結果まとめ】
+${summaryBlock}
 
 【構成指示】
 - MBTI/ 動物占い/ 算命学の３つの診断自体と診断結果のそれぞれの特徴を出して！
 - この３つの観点から考えて、どんなギャップがあるのか、またどんな課題や問題が起こる可能性があり、どのように解決をするべきなのか
 - 年度によっての運気の流れと性格を見て、中期的にどのように行動をするべきなのか
-- まとめの文章をかなり長文で書いてユーザーの満足度を担保して！
+- まとめの文章をかなり長文で書いてユーザーの満足度を担保して！（${shirokumaProfile.closing} のトーンを参考に）
 
-【診断データ】
-${summaryBlock}
-
-    `;
+【文章のトーン】
+${shirokumaProfile.tone}
+`;
 
     try {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
