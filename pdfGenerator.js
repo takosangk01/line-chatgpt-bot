@@ -27,7 +27,7 @@ function generatePDF(summary, advice, fileName) {
     doc.pipe(stream);
 
     // タイトル
-    doc.fontSize(18).text('🧸 あなただけの取扱説明書', { align: 'center' });
+    doc.fontSize(18).text('🧸 あなただけのトータル診断', { align: 'center' });
     doc.moveDown(1.5);
 
     // Summary
