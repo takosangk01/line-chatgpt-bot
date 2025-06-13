@@ -119,7 +119,7 @@ ${shirokumaProfile.tone}
         model: 'gpt-4',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
-        max_tokens: 4000
+        max_tokens: 5000
       }, {
         headers: {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
