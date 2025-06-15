@@ -91,9 +91,9 @@ app.post('/webhook', middleware(config), async (req, res) => {
       continue;
     }
 
-    const summaryBlock = `📘 MBTI：${mbti}
-🌟 動物占い：${animalType}
-🌿 算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
+    const summaryBlock = `◆ MBTI：${mbti}
+◆ 動物占い：${animalType}
+◆ 算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
     
 const userId = event.source.userId;
 const profile = await client.getProfile(userId);
@@ -145,7 +145,7 @@ await client.replyMessage(event.replyToken, [
 生年月日とMBTIから見えてきた、
 今の${userName}さんの「本質」や「今の流れ」をギュッと詰め込んでます。
 
-⸻
+------
 
 まずは気になるところからでOK！
 ピンとくる言葉が、きっと見つかるはず👇`
