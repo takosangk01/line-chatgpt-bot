@@ -30,7 +30,7 @@ async function generatePDF(summary, advice, fileName, topPdfPath) {
 
     doc.pipe(stream);
 
-    doc.fontSize(18).text('🧸 あなただけのトータル診断', { align: 'center' });
+    doc.fontSize(18).text('◆◆ あなただけのトータル診断 ◆◆', { align: 'center' });
     doc.moveDown(1.5);
 
     doc.fontSize(12).text(summary, { lineGap: 6 });
