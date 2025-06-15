@@ -94,7 +94,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
     const summaryBlock = `◆ MBTI：${mbti}
 ◆ 動物占い：${animalType}
 ◆ 算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
-    
+
     const userId = event.source.userId;
     const profile = await client.getProfile(userId);
     const userName = profile.displayName;
@@ -135,8 +135,14 @@ ${shirokumaProfile.tone}
       const advice = response.data.choices[0].message.content;
       const filename = `${userId}_${Date.now()}.pdf`;
 
-      // PDFの1ページ目に intro.pdf を挿入して生成
-      const filepath = await generatePDF(summaryBlock, advice, filename, path.join(__dirname, 'templates', 'intro.pdf'));
+      // PDFの1ページ目に shindan01-top.pdf を挿入して生成
+      const filepath = await generatePDF(
+        summaryBlock,
+        advice,
+        filename,
+        path.join(__dirname, 'templates', 'shindan01-top.pdf')
+      );
+
       const fileUrl = await uploadPDF(filepath);
 
       await client.replyMessage(event.replyToken, [
