@@ -133,8 +133,10 @@ ${shirokumaProfile.tone}
       const filepath = await generatePDF(summaryBlock, advice, filename);
       const fileUrl = await uploadPDF(filepath);
 
-      await client.replyMessage(event.replyToken, [
-        { type: 'text', text: `🐻‍❄️ ${userName}さん、お待たせしました！
+await client.replyMessage(event.replyToken, [
+  {
+    type: 'text',
+    text: `🐻‍❄️ ${userName}さん、お待たせしました！
 あなたの診断結果がまとまったPDFができました📄✨
 
 生年月日とMBTIから見えてきた、
@@ -144,9 +146,12 @@ ${shirokumaProfile.tone}
 
 まずは気になるところからでOK！
 ピンとくる言葉が、きっと見つかるはず👇`
-};
-        { type: 'text', text: fileUrl }
-      ]);
+  },
+  {
+    type: 'text',
+    text: fileUrl
+  }
+]);
     } catch (err) {
       console.error('Error:', err);
       await client.replyMessage(event.replyToken, {
