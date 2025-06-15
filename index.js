@@ -94,7 +94,10 @@ app.post('/webhook', middleware(config), async (req, res) => {
     const summaryBlock = `📘 MBTI：${mbti}
 🌟 動物占い：${animalType}
 🌿 算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
-
+    
+const userId = event.source.userId;
+const profile = await client.getProfile(userId);
+const userName = profile.displayName;
     const prompt = `
 ${shirokumaProfile.usePromptTemplate}
 
