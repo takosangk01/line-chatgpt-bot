@@ -95,9 +95,10 @@ app.post('/webhook', middleware(config), async (req, res) => {
 ◆ 動物占い：${animalType}
 ◆ 算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
     
-const userId = event.source.userId;
-const profile = await client.getProfile(userId);
-const userName = profile.displayName;
+    const userId = event.source.userId;
+    const profile = await client.getProfile(userId);
+    const userName = profile.displayName;
+
     const prompt = `
 ${shirokumaProfile.usePromptTemplate}
 
@@ -132,14 +133,16 @@ ${shirokumaProfile.tone}
       });
 
       const advice = response.data.choices[0].message.content;
-      const filename = `${event.source.userId}_${Date.now()}.pdf`;
-      const filepath = await generatePDF(summaryBlock, advice, filename);
+      const filename = `${userId}_${Date.now()}.pdf`;
+
+      // PDFの1ページ目に intro.pdf を挿入して生成
+      const filepath = await generatePDF(summaryBlock, advice, filename, path.join(__dirname, 'templates', 'intro.pdf'));
       const fileUrl = await uploadPDF(filepath);
 
-await client.replyMessage(event.replyToken, [
-  {
-    type: 'text',
-    text: `🐻‍❄️ ${userName}さん、お待たせしました！
+      await client.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: `🐻‍❄️ ${userName}さん、お待たせしました！
 あなたの診断結果がまとまったPDFができました📄✨
 
 生年月日とMBTIから見えてきた、
@@ -149,12 +152,12 @@ await client.replyMessage(event.replyToken, [
 
 まずは気になるところからでOK！
 ピンとくる言葉が、きっと見つかるはず👇`
-  },
-  {
-    type: 'text',
-    text: fileUrl
-  }
-]);
+        },
+        {
+          type: 'text',
+          text: fileUrl
+        }
+      ]);
     } catch (err) {
       console.error('Error:', err);
       await client.replyMessage(event.replyToken, {
