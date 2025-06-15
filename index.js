@@ -134,7 +134,17 @@ ${shirokumaProfile.tone}
       const fileUrl = await uploadPDF(filepath);
 
       await client.replyMessage(event.replyToken, [
-        { type: 'text', text: '診断結果のPDFが完成したよ✨' },
+        { type: 'text', text: `🐻‍❄️ ${userName}さん、お待たせしました！
+あなたの診断結果がまとまったPDFができました📄✨
+
+生年月日とMBTIから見えてきた、
+今の${userName}さんの「本質」や「今の流れ」をギュッと詰め込んでます。
+
+⸻
+
+まずは気になるところからでOK！
+ピンとくる言葉が、きっと見つかるはず👇`
+};
         { type: 'text', text: fileUrl }
       ]);
     } catch (err) {
