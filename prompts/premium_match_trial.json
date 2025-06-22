@@ -1,0 +1,7 @@
+{
+  "title": "相性診断（お試し版）",
+  "description": "2人の生年月日・MBTI・性別をもとに、関係性のヒントを届けるお試し版の診断です。",
+  "preMessage": "🐻‍❄️ {userName}さん、お待たせしました！\n\n相性診断の結果がまとまったPDFができました📄✨\n\nふたりの性格や関係性の可能性を、しろくまがやさしく読み解いたよ。",
+  "summaryTemplate": "◆ あなた：{userMBTI}／{userGender}／{userBirth}\n◆ 相手　：{partnerMBTI}／{partnerGender}／{partnerBirth}\n◆ 診断内容：{topic}",
+  "prompt": "{shirokumaProfile.usePromptTemplate}\n\n以下の条件に従って、相性診断のお試しPDF用の結果を8000文字以内でやさしく生成してください。\n\n【診断対象】\n- あなた：{userMBTI}（{userGender}）、生年月日：{userBirth}\n- 相手　：{partnerMBTI}（{partnerGender}）、生年月日：{partnerBirth}\n- 関係性テーマ：{topic}\n\n【構成指示】\n- MBTI、動物占い、算命学の観点から、ふたりの性格や本質の違い・重なりを言語化してください\n- 指定された関係性テーマ（{topic}）に基づいて、相性の良さ・すれ違いやすいポイントを丁寧に説明してください\n- お試し版なので、最も核心に入る直前で切り上げてください（続きが気になる構成）\n- 長文すぎないように、2〜3ページ分程度のPDFを意識してください（4000文字目安）\n- 段落や見出しは記号などで読みやすく\n- 絵文字は使わないこと\n\n【文章トーン】\n{shirokumaProfile.tone}\n\n【参考構成・雰囲気】\n{shirokumaProfile.sample}"
+}
