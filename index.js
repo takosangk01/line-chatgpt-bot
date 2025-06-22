@@ -8,6 +8,7 @@ const { generatePDF } = require('./pdfGenerator');
 const { uploadPDF } = require('./uploader');
 
 const app = express();
+app.use(express.json());
 
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
@@ -55,25 +56,11 @@ function extractDateAndMBTI(input) {
   return null;
 }
 
-app.post('/webhook', middleware(config), async (req, res) => {
-  const events = req.body.events;
-  if (!events || events.length === 0) return res.status(200).send('No events');
+app.post('/webhook/form', async (req, res) => {
+  try {
+    const { line_user_id, birthdate, mbti, form_id } = req.body;
+    const [year, month, day] = birthdate.split('-').map(Number);
 
-  for (const event of events) {
-    if (event.type !== 'message' || event.message.type !== 'text') continue;
-
-    const input = event.message.text;
-    const extracted = extractDateAndMBTI(input);
-
-    if (!extracted) {
-      await client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '生年月日（例：1996年4月24日）とMBTI（例：ENFP）を一緒に送ってね！改行してもOKだよ。'
-      });
-      continue;
-    }
-
-    const { year, month, day, mbti } = extracted;
     const zodiacNumber = getCorrectEtoIndex(year, month, day);
     const animalEntry = animalMap.find(entry => parseInt(entry.干支番号) === zodiacNumber);
     const animalType = animalEntry?.動物 || '不明';
@@ -84,19 +71,18 @@ app.post('/webhook', middleware(config), async (req, res) => {
     const guardianSpirit = stemData?.guardian_spirit || '不明';
 
     if (animalType === '不明' || element === '不明' || guardianSpirit === '不明') {
-      await client.replyMessage(event.replyToken, {
+      await client.pushMessage(line_user_id, {
         type: 'text',
         text: '診断情報が取得できなかったよ。他の生年月日で試してみてね。'
       });
-      continue;
+      return res.status(200).send('NG');
     }
 
     const summaryBlock = `◆ MBTI：${mbti}
 ◆ 動物占い：${animalType}
 ◆ 算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
 
-    const userId = event.source.userId;
-    const profile = await client.getProfile(userId);
+    const profile = await client.getProfile(line_user_id);
     const userName = profile.displayName;
 
     const prompt = `
@@ -119,36 +105,34 @@ ${summaryBlock}
 ${shirokumaProfile.tone}
 `;
 
-    try {
-      const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 5000
-      }, {
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      });
+    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens: 5000
+    }, {
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
 
-      const advice = response.data.choices[0].message.content;
-      const filename = `${userId}_${Date.now()}.pdf`;
+    const advice = response.data.choices[0].message.content;
+    const filename = `${line_user_id}_${Date.now()}.pdf`;
 
-      // PDFの1ページ目に shindan01-top.pdf を挿入して生成
-      const filepath = await generatePDF(
-        summaryBlock,
-        advice,
-        filename,
-        path.join(__dirname, 'templates', 'shindan01-top.pdf')
-      );
+    const filepath = await generatePDF(
+      summaryBlock,
+      advice,
+      filename,
+      path.join(__dirname, 'templates', 'shindan01-top.pdf')
+    );
 
-      const fileUrl = await uploadPDF(filepath);
+    const fileUrl = await uploadPDF(filepath);
 
-      await client.replyMessage(event.replyToken, [
-        {
-          type: 'text',
-          text: `🐻‍❄️ ${userName}さん、お待たせしました！
+    await client.pushMessage(line_user_id, [
+      {
+        type: 'text',
+        text: `🐻‍❄️ ${userName}さん、お待たせしました！
 あなたの診断結果がまとまったPDFができました📄✨
 
 生年月日とMBTIから見えてきた、
@@ -158,22 +142,19 @@ ${shirokumaProfile.tone}
 
 まずは気になるところからでOK！
 ピンとくる言葉が、きっと見つかるはず👇`
-        },
-        {
-          type: 'text',
-          text: fileUrl
-        }
-      ]);
-    } catch (err) {
-      console.error('Error:', err);
-      await client.replyMessage(event.replyToken, {
+      },
+      {
         type: 'text',
-        text: 'エラーが発生しちゃったみたい。もう一度試してみてね。'
-      });
-    }
-  }
+        text: fileUrl
+      }
+    ]);
 
-  res.status(200).send('OK');
+    res.status(200).send('OK');
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).send('Server error');
+  }
 });
+
 
 app.listen(3000, () => console.log('✅ Server is running on port 3000'));
