@@ -31,7 +31,7 @@ function getCorrectEtoIndex(year, month, day) {
 
 // 日干（十干）
 function getDayStem(year, month, day) {
-  const baseDate = new Date(1873, 0, 12); // 明治6年1月12日（西暦開始日）
+  const baseDate = new Date(1873, 0, 12); // 明治6年1月12日
   const targetDate = new Date(year, month - 1, day);
   const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
   const tenStems = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
@@ -45,10 +45,6 @@ app.post('/webhook/form', async (req, res) => {
 
     const templatePath = path.join(__dirname, 'prompts', `${form_id}.json`);
     if (!fs.existsSync(templatePath)) {
-      await client.pushMessage(line_user_id, {
-        type: 'text',
-        text: '指定されたフォームのテンプレートが見つかりませんでした。'
-      });
       return res.status(400).send('Template not found');
     }
 
@@ -64,32 +60,23 @@ app.post('/webhook/form', async (req, res) => {
     const guardianSpirit = stemData?.guardian_spirit || '不明';
 
     if ([animalType, element, guardianSpirit].includes('不明')) {
-      await client.pushMessage(line_user_id, {
-        type: 'text',
-        text: '診断に必要な情報が取得できませんでした。別の生年月日で試してみてください。'
-      });
       return res.status(200).send('NG');
     }
 
-    const summaryBlock = template.summaryBlockTemplate
+    const summaryBlock = template.summary
       .replace('{mbti}', mbti)
-      .replace('{animalType}', animalType)
-      .replace('{dayStem}', dayStem)
+      .replace('{animal}', animalType)
+      .replace('{stem}', dayStem)
       .replace('{element}', element)
-      .replace('{guardianSpirit}', guardianSpirit);
+      .replace('{guardian}', guardianSpirit);
 
-    const profile = await client.getProfile(line_user_id);
-    const userName = profile.displayName;
-
-    const prompt = [
-      template.usePromptTemplate,
-      template.extraInstruction,
-      `\n【診断結果まとめ】\n${summaryBlock}`,
-      '\n【構成指示】',
-      ...template.structureGuide,
-      '\n【文章のトーン】',
-      template.tone
-    ].join('\n');
+    const prompt = template.prompt
+      .replace('{summary}', summaryBlock)
+      .replace('{question}', req.body.question || '')
+      .replace('{tone}', template.tone)
+      .replace('{closing}', template.closing)
+      .replace('{sample}', template.sample)
+      .replace('{usePromptTemplate}', template.usePromptTemplate);
 
     const aiResponse = await axios.post('https://api.openai.com/v1/chat/completions', {
       model: 'gpt-4',
@@ -104,7 +91,6 @@ app.post('/webhook/form', async (req, res) => {
     });
 
     const advice = aiResponse.data.choices[0].message.content;
-
     const filename = `${line_user_id}_${Date.now()}.pdf`;
     const filepath = await generatePDF(
       summaryBlock,
@@ -112,14 +98,19 @@ app.post('/webhook/form', async (req, res) => {
       filename,
       path.join(__dirname, 'templates', 'shindan01-top.pdf')
     );
+
     const fileUrl = await uploadPDF(filepath);
 
-    const messageText = template.message1.replaceAll('{userName}', userName);
-
-    await client.pushMessage(line_user_id, [
-      { type: 'text', text: messageText },
-      { type: 'text', text: fileUrl }
-    ]);
+    // LINEでは送らず、Lステップのカスタム情報欄に格納
+    await axios.post('https://api.lstep.app/v1/line/custom_field', {
+      user_id: line_user_id,
+      field_name: '診断PDFリンク',
+      value: fileUrl
+    }, {
+      headers: {
+        'Authorization': `Bearer ${process.env.LSTEP_API_KEY}`
+      }
+    });
 
     res.status(200).send('OK');
   } catch (err) {
