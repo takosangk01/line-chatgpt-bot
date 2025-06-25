@@ -43,7 +43,7 @@ app.post('/webhook/form', async (req, res) => {
     const { line_user_id, birthdate, mbti, form_id } = req.body;
     const [year, month, day] = birthdate.split('-').map(Number);
 
-    const templatePath = path.join(__dirname, 'form_templates', `${form_id}.json`);
+    const templatePath = path.join(__dirname, 'prompts', `${form_id}.json`);
     if (!fs.existsSync(templatePath)) {
       await client.pushMessage(line_user_id, {
         type: 'text',
