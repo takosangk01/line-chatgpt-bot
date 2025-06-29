@@ -88,15 +88,30 @@ function getAttributes(year, month, day) {
   };
 }
 
-function getSummaryBlock(name, user, partner, topic) {
-  if (name.includes('相性診断')) {
-    return `◆ あなた：${user.mbti}／${user.gender}／${user.year}年${user.month}月${user.day}日\n` +
-           `◆ 相手　：${partner.mbti}／${partner.gender}／${partner.year}年${partner.month}月${partner.day}日\n` +
-           `◆ 診断内容：${topic}`;
-  } else {
-    const attrs = getAttributes(user.year, user.month, user.day);
-    return `◆ MBTI：${user.mbti}\n◆ 動物占い：${attrs.animal}\n◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）`;
-  }
+function getSummaryBlock(name, user, partner, topic, template) {
+  const userAttrs = getAttributes(user.year, user.month, user.day);
+  const partnerAttrs = partner ? getAttributes(partner.year, partner.month, partner.day) : {};
+
+  return template
+    .replace(/\$\{user\.mbti\}/g, user.mbti)
+    .replace(/\$\{user\.gender\}/g, user.gender)
+    .replace(/\$\{user\.year\}/g, user.year)
+    .replace(/\$\{user\.month\}/g, user.month)
+    .replace(/\$\{user\.day\}/g, user.day)
+    .replace(/\$\{user\.animal\}/g, userAttrs.animal)
+    .replace(/\$\{user\.stem\}/g, userAttrs.stem)
+    .replace(/\$\{user\.element\}/g, userAttrs.element)
+    .replace(/\$\{user\.guardian\}/g, userAttrs.guardian)
+    .replace(/\$\{partner\.mbti\}/g, partner?.mbti || '')
+    .replace(/\$\{partner\.gender\}/g, partner?.gender || '')
+    .replace(/\$\{partner\.year\}/g, partner?.year || '')
+    .replace(/\$\{partner\.month\}/g, partner?.month || '')
+    .replace(/\$\{partner\.day\}/g, partner?.day || '')
+    .replace(/\$\{partner\.animal\}/g, partnerAttrs.animal || '')
+    .replace(/\$\{partner\.stem\}/g, partnerAttrs.stem || '')
+    .replace(/\$\{partner\.element\}/g, partnerAttrs.element || '')
+    .replace(/\$\{partner\.guardian\}/g, partnerAttrs.guardian || '')
+    .replace(/\$\{topic\}/g, topic || '');
 }
 
 app.post('/webhook', middleware(config), async (req, res) => {
@@ -127,20 +142,13 @@ app.post('/webhook', middleware(config), async (req, res) => {
       try {
         const profile = await client.getProfile(event.source.userId);
         const userName = profile.displayName;
-        const summary = getSummaryBlock(diagnosisName, user, partner, topic);
-
         const promptJson = JSON.parse(fs.readFileSync(promptPath, 'utf8'));
+        const summary = getSummaryBlock(diagnosisName, user, partner, topic, promptJson.summaryTemplate || '');
+
         const filledPrompt = promptJson.prompt
           .replace('{mbti}', user.mbti)
-          .replace('{animalType}', getAttributes(user.year, user.month, user.day).animal)
-          .replace('{stem}', getAttributes(user.year, user.month, user.day).stem)
-          .replace('{element}', getAttributes(user.year, user.month, user.day).element)
-          .replace('{guardian}', getAttributes(user.year, user.month, user.day).guardian)
-          .replace('{question}', topic || '―')
-          .replace('{tone}', promptJson.tone || '')
-          .replace('{sample}', promptJson.sample || '')
           .replace('{summary}', summary)
-          .replace('{closing}', promptJson.closing || '');
+          .replace('{question}', topic || '');
 
         const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
           model: 'gpt-4',
