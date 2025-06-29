@@ -32,49 +32,6 @@ function getDayStem(year, month, day) {
   return stems[(diffDays % 10 + 10) % 10];
 }
 
-function extractDiagnosisName(input) {
-  const match = input.match(/《《《(.+?)》》》/);
-  return match ? match[1] : null;
-}
-
-function extractPartnerAttributes(input) {
-  const match = input.match(/・相手\s+(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})\s+(\S+)/);
-  if (!match) return null;
-  const [ , year, month, day, mbti, gender ] = match;
-  return {
-    year: parseInt(year),
-    month: parseInt(month),
-    day: parseInt(day),
-    mbti,
-    gender
-  };
-}
-
-function extractUserAttributes(input) {
-  const match = input.match(/・自分\s+(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})\s+(\S+)/);
-  if (!match) return null;
-  const [ , year, month, day, mbti, gender ] = match;
-  return {
-    year: parseInt(year),
-    month: parseInt(month),
-    day: parseInt(day),
-    mbti,
-    gender
-  };
-}
-
-function extractTopic(input) {
-  const match = input.match(/・二人の関係性\s*(.+)/);
-  return match ? match[1].trim() : null;
-}
-
-function getPromptFilePath(name) {
-  if (name.includes('無料トータル診断')) return path.join(__dirname, 'prompts', 'muryo_total.json');
-  if (name.includes('自分診断')) return path.join(__dirname, 'prompts', 'premium_trial.json');
-  if (name.includes('相性診断')) return path.join(__dirname, 'prompts', 'premium_match_trial.json');
-  return null;
-}
-
 function getAttributes(year, month, day) {
   const zodiacNumber = getCorrectEtoIndex(year, month, day);
   const animal = animalMap.find(e => parseInt(e.干支番号) === zodiacNumber)?.動物 || '不明';
@@ -88,30 +45,61 @@ function getAttributes(year, month, day) {
   };
 }
 
-function getSummaryBlock(name, user, partner, topic, template) {
-  const userAttrs = getAttributes(user.year, user.month, user.day);
-  const partnerAttrs = partner ? getAttributes(partner.year, partner.month, partner.day) : {};
+function extractDiagnosisName(input) {
+  const match = input.match(/《《《(.+?)》》》/);
+  return match ? match[1] : null;
+}
 
-  return template
-    .replace(/\$\{user\.mbti\}/g, user.mbti)
-    .replace(/\$\{user\.gender\}/g, user.gender)
-    .replace(/\$\{user\.year\}/g, user.year)
-    .replace(/\$\{user\.month\}/g, user.month)
-    .replace(/\$\{user\.day\}/g, user.day)
-    .replace(/\$\{user\.animal\}/g, userAttrs.animal)
-    .replace(/\$\{user\.stem\}/g, userAttrs.stem)
-    .replace(/\$\{user\.element\}/g, userAttrs.element)
-    .replace(/\$\{user\.guardian\}/g, userAttrs.guardian)
-    .replace(/\$\{partner\.mbti\}/g, partner?.mbti || '')
-    .replace(/\$\{partner\.gender\}/g, partner?.gender || '')
-    .replace(/\$\{partner\.year\}/g, partner?.year || '')
-    .replace(/\$\{partner\.month\}/g, partner?.month || '')
-    .replace(/\$\{partner\.day\}/g, partner?.day || '')
-    .replace(/\$\{partner\.animal\}/g, partnerAttrs.animal || '')
-    .replace(/\$\{partner\.stem\}/g, partnerAttrs.stem || '')
-    .replace(/\$\{partner\.element\}/g, partnerAttrs.element || '')
-    .replace(/\$\{partner\.guardian\}/g, partnerAttrs.guardian || '')
-    .replace(/\$\{topic\}/g, topic || '');
+function extractSingleAttributes(input) {
+  const match = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})/);
+  if (!match) return null;
+  const [ , year, month, day, mbti ] = match;
+  return { year: parseInt(year), month: parseInt(month), day: parseInt(day), mbti };
+}
+
+function extractPremiumAttributes(input) {
+  const dateMbtiMatch = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})/);
+  const questionMatch = input.match(/・お悩み\s*(.+)/);
+  if (!dateMbtiMatch || !questionMatch) return null;
+  const [ , year, month, day, mbti ] = dateMbtiMatch;
+  return {
+    year: parseInt(year),
+    month: parseInt(month),
+    day: parseInt(day),
+    mbti,
+    question: questionMatch[1].trim()
+  };
+}
+
+function extractUserPartnerTopic(input) {
+  const userMatch = input.match(/・自分\s+(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})\s+(\S+)/);
+  const partnerMatch = input.match(/・相手\s+(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})\s+(\S+)/);
+  const topicMatch = input.match(/・二人の関係性\s*(.+)/);
+  if (!userMatch || !partnerMatch || !topicMatch) return null;
+  return {
+    user: {
+      year: parseInt(userMatch[1]),
+      month: parseInt(userMatch[2]),
+      day: parseInt(userMatch[3]),
+      mbti: userMatch[4],
+      gender: userMatch[5]
+    },
+    partner: {
+      year: parseInt(partnerMatch[1]),
+      month: parseInt(partnerMatch[2]),
+      day: parseInt(partnerMatch[3]),
+      mbti: partnerMatch[4],
+      gender: partnerMatch[5]
+    },
+    topic: topicMatch[1].trim()
+  };
+}
+
+function getPromptFilePath(name) {
+  if (name.includes('無料トータル診断')) return path.join(__dirname, 'prompts', 'muryo_total.json');
+  if (name.includes('自分診断')) return path.join(__dirname, 'prompts', 'premium_trial.json');
+  if (name.includes('相性診断')) return path.join(__dirname, 'prompts', 'premium_match_trial.json');
+  return null;
 }
 
 app.post('/webhook', middleware(config), async (req, res) => {
@@ -127,9 +115,23 @@ app.post('/webhook', middleware(config), async (req, res) => {
       continue;
     }
 
-    const user = extractUserAttributes(input);
-    const partner = diagnosisName.includes('相性診断') ? extractPartnerAttributes(input) : null;
-    const topic = diagnosisName.includes('相性診断') ? extractTopic(input) : null;
+    let user, partner, topic, question;
+    if (diagnosisName.includes('無料トータル診断')) {
+      user = extractSingleAttributes(input);
+    } else if (diagnosisName.includes('自分診断')) {
+      const data = extractPremiumAttributes(input);
+      if (data) {
+        user = data;
+        question = data.question;
+      }
+    } else if (diagnosisName.includes('相性診断')) {
+      const data = extractUserPartnerTopic(input);
+      if (data) {
+        user = data.user;
+        partner = data.partner;
+        topic = data.topic;
+      }
+    }
 
     if (!user || (diagnosisName.includes('相性診断') && (!partner || !topic))) {
       await client.replyMessage(event.replyToken, { type: 'text', text: '入力内容に不備があります。' });
@@ -142,17 +144,39 @@ app.post('/webhook', middleware(config), async (req, res) => {
       try {
         const profile = await client.getProfile(event.source.userId);
         const userName = profile.displayName;
-        const promptJson = JSON.parse(fs.readFileSync(promptPath, 'utf8'));
-        const summary = getSummaryBlock(diagnosisName, user, partner, topic, promptJson.summaryTemplate || '');
+        const attrs = getAttributes(user.year, user.month, user.day);
 
-        const filledPrompt = promptJson.prompt
+        let summaryTitle = '◆◆ あなただけのトータル診断 ◆◆';
+        if (diagnosisName.includes('相性診断')) {
+          summaryTitle = '◆◆ ふたりの相性診断 ◆◆';
+        } else if (diagnosisName.includes('自分診断')) {
+          summaryTitle = '◆◆ あなただけのプレミアム診断 ◆◆';
+        }
+
+        let summary = '';
+        if (diagnosisName.includes('相性診断')) {
+          summary = `◆ あなた：${user.mbti}／${user.gender}／${user.year}年${user.month}月${user.day}日\n` +
+                    `◆ 相手　：${partner.mbti}／${partner.gender}／${partner.year}年${partner.month}月${partner.day}日\n` +
+                    `◆ 診断内容：${topic}`;
+        } else {
+          summary = `◆ MBTI：${user.mbti}\n◆ 動物占い：${attrs.animal}\n◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）`;
+        }
+
+        const fullSummary = `${summaryTitle}\n${summary}`;
+
+        const promptJson = JSON.parse(fs.readFileSync(promptPath, 'utf8'));
+        const promptText = promptJson.prompt
           .replace('{mbti}', user.mbti)
-          .replace('{summary}', summary)
-          .replace('{question}', topic || '');
+          .replace('{animalType}', attrs.animal)
+          .replace('{stem}', attrs.stem)
+          .replace('{element}', attrs.element)
+          .replace('{guardian}', attrs.guardian)
+          .replace('{question}', question || topic || '―')
+          .replace('{summary}', summary);
 
         const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
           model: 'gpt-4',
-          messages: [{ role: 'user', content: filledPrompt }],
+          messages: [{ role: 'user', content: promptText }],
           temperature: 0.7,
           max_tokens: 4000
         }, {
@@ -164,20 +188,13 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
         const advice = aiRes.data.choices[0].message.content;
         const filename = `${event.source.userId}_${Date.now()}.pdf`;
-        const filepath = await generatePDF(summary, advice, filename, path.join(__dirname, 'templates', 'shindan01-top.pdf'));
+        const filepath = await generatePDF(fullSummary, advice, filename, path.join(__dirname, 'templates', 'shindan01-top.pdf'));
         const fileUrl = await uploadPDF(filepath);
 
-        const messages = [
-          {
-            type: 'text',
-            text: `🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\n内容はこちらからご確認ください：`
-          },
-          {
-            type: 'text',
-            text: fileUrl
-          }
-        ];
-        await client.pushMessage(event.source.userId, messages);
+        await client.pushMessage(event.source.userId, [
+          { type: 'text', text: `🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\nこちらからご確認ください：` },
+          { type: 'text', text: fileUrl }
+        ]);
       } catch (err) {
         console.error('診断処理エラー:', err);
       }
