@@ -60,6 +60,8 @@ function extractDiagnosisName(input) {
 }
 
 function getPromptFilePath(diagnosisName) {
+  if (!diagnosisName) return null;
+
   if (diagnosisName.includes('無料トータル診断')) {
     return path.join(__dirname, 'prompts', 'muryo_total.json');
   } else if (diagnosisName.includes('相性診断')) {
@@ -83,6 +85,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
     const diagnosisName = extractDiagnosisName(input);
     const promptPath = getPromptFilePath(diagnosisName);
 
+    // 初期エラーチェック
     if (!diagnosisName || !promptPath || !extracted) {
       await client.replyMessage(event.replyToken, {
         type: 'text',
@@ -91,90 +94,83 @@ app.post('/webhook', middleware(config), async (req, res) => {
       continue;
     }
 
-    let prompt;
-    try {
-      prompt = fs.readFileSync(promptPath, 'utf-8');
-    } catch (err) {
-      console.error('プロンプト読み込みエラー:', err);
-      await client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '診断用プロンプトの読み込みに失敗しました。運営にお問い合わせください。'
-      });
-      continue;
-    }
+    // すぐに返信を返す（OpenAI待ち対策）
+    await client.replyMessage(event.replyToken, {
+      type: 'text',
+      text: '🐻‍❄️ 診断を作成中です… 少しだけお待ちください！'
+    });
 
-    const { year, month, day, mbti } = extracted;
-    const zodiacNumber = getCorrectEtoIndex(year, month, day);
-    const animalEntry = animalMap.find(entry => parseInt(entry.干支番号) === zodiacNumber);
-    const animalType = animalEntry?.動物 || '不明';
+    // OpenAI以降は非同期で処理
+    (async () => {
+      let prompt;
+      try {
+        prompt = fs.readFileSync(promptPath, 'utf-8');
+      } catch (err) {
+        console.error('プロンプト読み込みエラー:', err);
+        return;
+      }
 
-    const dayStem = getDayStem(year, month, day);
-    const stemData = stemMap.find(entry => entry.day_stem === dayStem);
-    const element = stemData?.element || '不明';
-    const guardianSpirit = stemData?.guardian_spirit || '不明';
+      const { year, month, day, mbti } = extracted;
+      const zodiacNumber = getCorrectEtoIndex(year, month, day);
+      const animalEntry = animalMap.find(entry => parseInt(entry.干支番号) === zodiacNumber);
+      const animalType = animalEntry?.動物 || '不明';
 
-    if (animalType === '不明' || element === '不明' || guardianSpirit === '不明') {
-      await client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '診断情報が取得できなかったよ。他の生年月日で試してみてね。'
-      });
-      continue;
-    }
+      const dayStem = getDayStem(year, month, day);
+      const stemData = stemMap.find(entry => entry.day_stem === dayStem);
+      const element = stemData?.element || '不明';
+      const guardianSpirit = stemData?.guardian_spirit || '不明';
 
-    const summaryBlock = `◆ MBTI：${mbti}\n◆ 動物占い：${animalType}\n◆ 算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
+      if (animalType === '不明' || element === '不明' || guardianSpirit === '不明') {
+        console.error('属性情報の取得に失敗:', { zodiacNumber, dayStem });
+        return;
+      }
 
-    const userId = event.source.userId;
-    const profile = await client.getProfile(userId);
-    const userName = profile.displayName;
+      const summaryBlock = `◆ MBTI：${mbti}\n◆ 動物占い：${animalType}\n◆ 算命学：${dayStem}（五行：${element}／守護神：${guardianSpirit}）`;
 
-    const fullPrompt = `
-${prompt}
+      try {
+        const profile = await client.getProfile(event.source.userId);
+        const userName = profile.displayName;
 
-【診断結果まとめ】
-${summaryBlock}`;
+        const fullPrompt = `${prompt}\n\n【診断結果まとめ】\n${summaryBlock}`;
 
-    try {
-      const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4',
-        messages: [{ role: 'user', content: fullPrompt }],
-        temperature: 0.7,
-        max_tokens: 5000
-      }, {
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      });
+        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+          model: 'gpt-4',
+          messages: [{ role: 'user', content: fullPrompt }],
+          temperature: 0.7,
+          max_tokens: 5000
+        }, {
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-      const advice = response.data.choices[0].message.content;
-      const filename = `${userId}_${Date.now()}.pdf`;
+        const advice = response.data.choices[0].message.content;
+        const filename = `${event.source.userId}_${Date.now()}.pdf`;
 
-      const filepath = await generatePDF(
-        summaryBlock,
-        advice,
-        filename,
-        path.join(__dirname, 'templates', 'shindan01-top.pdf')
-      );
+        const filepath = await generatePDF(
+          summaryBlock,
+          advice,
+          filename,
+          path.join(__dirname, 'templates', 'shindan01-top.pdf')
+        );
 
-      const fileUrl = await uploadPDF(filepath);
+        const fileUrl = await uploadPDF(filepath);
 
-      await client.replyMessage(event.replyToken, [
-        {
-          type: 'text',
-          text: `🐻‍❄️ ${userName}さん、お待たせしました！\nあなたの診断結果がまとまったPDFができました📄✨\n\n生年月日とMBTIから見えてきた、\n今の${userName}さんの「本質」や「今の流れ」をギュッと詰め込んでます。\n\n------\n\nまずは気になるところからでOK！\nピンとくる言葉が、きっと見つかるはず👇`
-        },
-        {
-          type: 'text',
-          text: fileUrl
-        }
-      ]);
-    } catch (err) {
-      console.error('Error:', err);
-      await client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: 'エラーが発生しちゃったみたい。もう一度試してみてね。'
-      });
-    }
+        await client.pushMessage(event.source.userId, [
+          {
+            type: 'text',
+            text: `🐻‍❄️ ${userName}さん、お待たせしました！\nあなたの診断結果がまとまったPDFができました📄✨\n\n生年月日とMBTIから見えてきた、\n今の${userName}さんの「本質」や「今の流れ」をギュッと詰め込んでます。`
+          },
+          {
+            type: 'text',
+            text: fileUrl
+          }
+        ]);
+      } catch (err) {
+        console.error('診断処理エラー:', err);
+      }
+    })();
   }
 
   res.status(200).send('OK');
