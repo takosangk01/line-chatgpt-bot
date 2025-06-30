@@ -44,7 +44,6 @@ function getAttributes(year, month, day) {
     guardian: stemInfo.guardian_spirit || '不明'
   };
 }
-
 function extractDiagnosisName(input) {
   const match = input.match(/《《《(.+?)》》》/);
   return match ? match[1] : null;
@@ -94,7 +93,6 @@ function extractUserPartnerTopic(input) {
     topic: topicMatch[1].trim()
   };
 }
-
 function getPromptFilePath(name) {
   if (name.includes('無料トータル診断')) return path.join(__dirname, 'prompts', 'muryo_total.json');
   if (name.includes('自分診断')) return path.join(__dirname, 'prompts', 'premium_trial.json');
@@ -141,7 +139,6 @@ app.post('/webhook', middleware(config), async (req, res) => {
     }
 
     await client.replyMessage(event.replyToken, { type: 'text', text: '🐻‍❄️ 診断を作成中です… 少しお待ちください！' });
-
     (async () => {
       try {
         const profile = await client.getProfile(event.source.userId);
@@ -154,63 +151,54 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
         let summary = '';
         if (diagnosisName.includes('相性診断')) {
-  const partnerAttrs = getAttributes(partner.year, partner.month, partner.day);
-  summary = `
+          const partnerAttrs = getAttributes(partner.year, partner.month, partner.day);
+          summary = `
 ◆ あなた：${user.mbti}／${user.gender}／${user.year}年${user.month}月${user.day}日／動物占い：${attrs.animal}／算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）
 ◆ 相手　：${partner.mbti}／${partner.gender}／${partner.year}年${partner.month}月${partner.day}日／動物占い：${partnerAttrs.animal}／算命学：${partnerAttrs.stem}（五行：${partnerAttrs.element}／守護神：${partnerAttrs.guardian}）
 ◆ 診断内容：${topic}
 `;
-} else if (diagnosisName.includes('自分診断')) {
-          summary =`
-            ◆ MBTI：${user.mbti}\n +
-            ◆ 動物占い：${attrs.animal}\n +
-            ◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）\n +
-            ◆ お悩み：${question || '―'}`;
+        } else if (diagnosisName.includes('自分診断')) {
+          summary = `◆ MBTI：${user.mbti}
+◆ 動物占い：${attrs.animal}
+◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）
+◆ お悩み：${question || '―'}`;
         } else {
-          summary =`
-            ◆ MBTI：${user.mbti}\n +
-            ◆ 動物占い：${attrs.animal}\n +
-            ◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）`;
+          summary = `◆ MBTI：${user.mbti}
+◆ 動物占い：${attrs.animal}
+◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）`;
         }
 
-        const fullSummary = ${summaryTitle}\n${summary};
+        const fullSummary = `${summaryTitle}\n${summary}`;
         const promptJson = JSON.parse(fs.readFileSync(promptPath, 'utf8'));
-
         const promptTemplate = promptJson.usePromptTemplate || '';
         const structureGuide = promptJson.structureGuide?.join('\n') || '';
         const extraInstruction = promptJson.extraInstruction || '';
 
-const guideText = (promptJson.structureGuide || []).join('\n')
-  .replace(/\$\{user\.mbti\}/g, user.mbti)
-  .replace(/\$\{user\.year\}/g, user.year)
-  .replace(/\$\{user\.month\}/g, user.month)
-  .replace(/\$\{user\.day\}/g, user.day)
-  .replace(/\$\{user\.gender\}/g, user.gender || '')
-  .replace(/\$\{partner\.mbti\}/g, partner?.mbti || '')
-  .replace(/\$\{partner\.year\}/g, partner?.year || '')
-  .replace(/\$\{partner\.month\}/g, partner?.month || '')
-  .replace(/\$\{partner\.day\}/g, partner?.day || '')
-  .replace(/\$\{partner\.gender\}/g, partner?.gender || '')
-  .replace(/\$\{attrs\.animal\}/g, attrs.animal)
-  .replace(/\$\{attrs\.stem\}/g, attrs.stem)
-  .replace(/\$\{attrs\.element\}/g, attrs.element)
-  .replace(/\$\{attrs\.guardian\}/g, attrs.guardian)
-  .replace(/\$\{partnerAttrs\.animal\}/g, partnerAttrs?.animal || '')
-  .replace(/\$\{partnerAttrs\.stem\}/g, partnerAttrs?.stem || '')
-  .replace(/\$\{partnerAttrs\.element\}/g, partnerAttrs?.element || '')
-  .replace(/\$\{partnerAttrs\.guardian\}/g, partnerAttrs?.guardian || '')
-  .replace(/\{question\}/g, question || topic || '―')
-  .replace(/\{summary\}/g, fullSummary);
+        const partnerAttrs = partner ? getAttributes(partner.year, partner.month, partner.day) : {};
 
-const promptText = 
-${promptTemplate}
+        const guideText = (promptJson.structureGuide || []).join('\n')
+          .replace(/\$\{user\.mbti\}/g, user.mbti)
+          .replace(/\$\{user\.year\}/g, user.year)
+          .replace(/\$\{user\.month\}/g, user.month)
+          .replace(/\$\{user\.day\}/g, user.day)
+          .replace(/\$\{user\.gender\}/g, user.gender || '')
+          .replace(/\$\{partner\.mbti\}/g, partner?.mbti || '')
+          .replace(/\$\{partner\.year\}/g, partner?.year || '')
+          .replace(/\$\{partner\.month\}/g, partner?.month || '')
+          .replace(/\$\{partner\.day\}/g, partner?.day || '')
+          .replace(/\$\{partner\.gender\}/g, partner?.gender || '')
+          .replace(/\$\{attrs\.animal\}/g, attrs.animal)
+          .replace(/\$\{attrs\.stem\}/g, attrs.stem)
+          .replace(/\$\{attrs\.element\}/g, attrs.element)
+          .replace(/\$\{attrs\.guardian\}/g, attrs.guardian)
+          .replace(/\$\{partnerAttrs\.animal\}/g, partnerAttrs?.animal || '')
+          .replace(/\$\{partnerAttrs\.stem\}/g, partnerAttrs?.stem || '')
+          .replace(/\$\{partnerAttrs\.element\}/g, partnerAttrs?.element || '')
+          .replace(/\$\{partnerAttrs\.guardian\}/g, partnerAttrs?.guardian || '')
+          .replace(/\{question\}/g, question || topic || '―')
+          .replace(/\{summary\}/g, fullSummary);
 
-${extraInstruction}
-
-${guideText}
-;
-
-
+        const promptText = `${promptTemplate}\n\n${extraInstruction}\n\n${guideText}`;
         const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
           model: 'gpt-4',
           messages: [{ role: 'user', content: promptText }],
@@ -218,18 +206,18 @@ ${guideText}
           max_tokens: 4000
         }, {
           headers: {
-            Authorization: Bearer ${process.env.OPENAI_API_KEY},
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
             'Content-Type': 'application/json'
           }
         });
 
         const advice = aiRes.data.choices[0].message.content;
-        const filename = ${event.source.userId}_${Date.now()}.pdf;
+        const filename = `${event.source.userId}_${Date.now()}.pdf`;
         const filepath = await generatePDF(fullSummary, advice, filename, path.join(__dirname, 'templates', 'shindan01-top.pdf'), summaryTitle);
         const fileUrl = await uploadPDF(filepath);
 
         await client.pushMessage(event.source.userId, [
-          { type: 'text', text: 🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\nこちらからご確認ください： },
+          { type: 'text', text: `🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\nこちらからご確認ください：` },
           { type: 'text', text: fileUrl }
         ]);
       } catch (err) {
@@ -243,5 +231,5 @@ ${guideText}
 
 const port = process.env.PORT || 3000;
 app.listen(port, '0.0.0.0', () => {
-  console.log(✅ Server is running on port ${port});
+  console.log(`✅ Server is running on port ${port}`);
 });
