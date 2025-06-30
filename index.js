@@ -179,24 +179,36 @@ app.post('/webhook', middleware(config), async (req, res) => {
         const structureGuide = promptJson.structureGuide?.join('\n') || '';
         const extraInstruction = promptJson.extraInstruction || '';
 
-        const promptText = `
+const guideText = (promptJson.structureGuide || []).join('\n')
+  .replace(/\$\{user\.mbti\}/g, user.mbti)
+  .replace(/\$\{user\.year\}/g, user.year)
+  .replace(/\$\{user\.month\}/g, user.month)
+  .replace(/\$\{user\.day\}/g, user.day)
+  .replace(/\$\{user\.gender\}/g, user.gender || '')
+  .replace(/\$\{partner\.mbti\}/g, partner?.mbti || '')
+  .replace(/\$\{partner\.year\}/g, partner?.year || '')
+  .replace(/\$\{partner\.month\}/g, partner?.month || '')
+  .replace(/\$\{partner\.day\}/g, partner?.day || '')
+  .replace(/\$\{partner\.gender\}/g, partner?.gender || '')
+  .replace(/\$\{attrs\.animal\}/g, attrs.animal)
+  .replace(/\$\{attrs\.stem\}/g, attrs.stem)
+  .replace(/\$\{attrs\.element\}/g, attrs.element)
+  .replace(/\$\{attrs\.guardian\}/g, attrs.guardian)
+  .replace(/\$\{partnerAttrs\.animal\}/g, partnerAttrs?.animal || '')
+  .replace(/\$\{partnerAttrs\.stem\}/g, partnerAttrs?.stem || '')
+  .replace(/\$\{partnerAttrs\.element\}/g, partnerAttrs?.element || '')
+  .replace(/\$\{partnerAttrs\.guardian\}/g, partnerAttrs?.guardian || '')
+  .replace(/\{question\}/g, question || topic || '―')
+  .replace(/\{summary\}/g, fullSummary);
+
+const promptText = `
 ${promptTemplate}
 
 ${extraInstruction}
 
-${structureGuide}`
-          .replace(/\$\{user\.mbti\}/g, user.mbti)
-          .replace(/\$\{user\.gender\}/g, user.gender || '')
-          .replace(/\$\{user\.year\}/g, user.year)
-          .replace(/\$\{user\.month\}/g, user.month)
-          .replace(/\$\{user\.day\}/g, user.day)
-          .replace(/\$\{partner\.mbti\}/g, partner?.mbti || '')
-          .replace(/\$\{partner\.gender\}/g, partner?.gender || '')
-          .replace(/\$\{partner\.year\}/g, partner?.year || '')
-          .replace(/\$\{partner\.month\}/g, partner?.month || '')
-          .replace(/\$\{partner\.day\}/g, partner?.day || '')
-          .replace(/\{question\}/g, question || topic || '―')
-          .replace(/\{summary\}/g, fullSummary);
+${guideText}
+`;
+
 
         const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
           model: 'gpt-4',
