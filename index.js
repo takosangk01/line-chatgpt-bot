@@ -156,23 +156,23 @@ app.post('/webhook', middleware(config), async (req, res) => {
         if (diagnosisName.includes('相性診断')) {
           const partnerAttrs = getAttributes(partner.year, partner.month, partner.day);
           summary =
-            `◆ あなた：${user.mbti}／${user.gender}／${user.year}年${user.month}月${user.day}日／動物占い：${attrs.animal}／算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）\n` +
-            `◆ 相手　：${partner.mbti}／${partner.gender}／${partner.year}年${partner.month}月${partner.day}日／動物占い：${partnerAttrs.animal}／算命学：${partnerAttrs.stem}（五行：${partnerAttrs.element}／守護神：${partnerAttrs.guardian}）\n` +
-            `◆ 診断内容：${topic}`;
+            ◆ あなた：${user.mbti}／${user.gender}／${user.year}年${user.month}月${user.day}日／動物占い：${attrs.animal}／算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）\n +
+            ◆ 相手　：${partner.mbti}／${partner.gender}／${partner.year}年${partner.month}月${partner.day}日／動物占い：${partnerAttrs.animal}／算命学：${partnerAttrs.stem}（五行：${partnerAttrs.element}／守護神：${partnerAttrs.guardian}）\n +
+            ◆ 診断内容：${topic};
         } else if (diagnosisName.includes('自分診断')) {
           summary =
-            `◆ MBTI：${user.mbti}\n` +
-            `◆ 動物占い：${attrs.animal}\n` +
-            `◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）\n` +
-            `◆ お悩み：${question || '―'}`;
+            ◆ MBTI：${user.mbti}\n +
+            ◆ 動物占い：${attrs.animal}\n +
+            ◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）\n +
+            ◆ お悩み：${question || '―'};
         } else {
           summary =
-            `◆ MBTI：${user.mbti}\n` +
-            `◆ 動物占い：${attrs.animal}\n` +
-            `◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）`;
+            ◆ MBTI：${user.mbti}\n +
+            ◆ 動物占い：${attrs.animal}\n +
+            ◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）;
         }
 
-        const fullSummary = `${summaryTitle}\n${summary}`;
+        const fullSummary = ${summaryTitle}\n${summary};
         const promptJson = JSON.parse(fs.readFileSync(promptPath, 'utf8'));
 
         const promptTemplate = promptJson.usePromptTemplate || '';
@@ -201,13 +201,13 @@ const guideText = (promptJson.structureGuide || []).join('\n')
   .replace(/\{question\}/g, question || topic || '―')
   .replace(/\{summary\}/g, fullSummary);
 
-const promptText = `
+const promptText = 
 ${promptTemplate}
 
 ${extraInstruction}
 
 ${guideText}
-`;
+;
 
 
         const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -217,18 +217,18 @@ ${guideText}
           max_tokens: 4000
         }, {
           headers: {
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            Authorization: Bearer ${process.env.OPENAI_API_KEY},
             'Content-Type': 'application/json'
           }
         });
 
         const advice = aiRes.data.choices[0].message.content;
-        const filename = `${event.source.userId}_${Date.now()}.pdf`;
+        const filename = ${event.source.userId}_${Date.now()}.pdf;
         const filepath = await generatePDF(fullSummary, advice, filename, path.join(__dirname, 'templates', 'shindan01-top.pdf'), summaryTitle);
         const fileUrl = await uploadPDF(filepath);
 
         await client.pushMessage(event.source.userId, [
-          { type: 'text', text: `🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\nこちらからご確認ください：` },
+          { type: 'text', text: 🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\nこちらからご確認ください： },
           { type: 'text', text: fileUrl }
         ]);
       } catch (err) {
@@ -242,6 +242,5 @@ ${guideText}
 
 const port = process.env.PORT || 3000;
 app.listen(port, '0.0.0.0', () => {
-  console.log(`✅ Server is running on port ${port}`);
+  console.log(✅ Server is running on port ${port});
 });
-
