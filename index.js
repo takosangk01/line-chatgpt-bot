@@ -144,35 +144,32 @@ app.post('/webhook', middleware(config), async (req, res) => {
       try {
         const profile = await client.getProfile(event.source.userId);
         const userName = profile.displayName;
-        const attrs = getAttributes(user.year, user.month, user.day);
+        const userAttrs = getAttributes(user.year, user.month, user.day);
 
-        let summaryTitle = '◆◆ あなただけのトータル診断 ◆◆';
-        if (diagnosisName.includes('相性診断')) {
-          summaryTitle = '◆◆ ふたりの相性診断 ◆◆';
-        } else if (diagnosisName.includes('自分診断')) {
-          summaryTitle = '◆◆ あなただけのプレミアム診断 ◆◆';
-        }
-
-        let summary = '';
+        let summary;
         if (diagnosisName.includes('相性診断')) {
           summary = `◆ あなた：${user.mbti}／${user.gender}／${user.year}年${user.month}月${user.day}日\n` +
                     `◆ 相手　：${partner.mbti}／${partner.gender}／${partner.year}年${partner.month}月${partner.day}日\n` +
                     `◆ 診断内容：${topic}`;
         } else {
-          summary = `◆ MBTI：${user.mbti}\n◆ 動物占い：${attrs.animal}\n◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）`;
+          summary = `◆ MBTI：${user.mbti}\n◆ 動物占い：${userAttrs.animal}\n◆ 算命学：${userAttrs.stem}（五行：${userAttrs.element}／守護神：${userAttrs.guardian}）`;
         }
 
-        const fullSummary = `${summaryTitle}\n${summary}`;
-
         const promptJson = JSON.parse(fs.readFileSync(promptPath, 'utf8'));
-        const promptText = promptJson.prompt
-          .replace('{mbti}', user.mbti)
-          .replace('{animalType}', attrs.animal)
-          .replace('{stem}', attrs.stem)
-          .replace('{element}', attrs.element)
-          .replace('{guardian}', attrs.guardian)
-          .replace('{question}', question || topic || '―')
-          .replace('{summary}', summary);
+
+        const promptText = [
+          promptJson.usePromptTemplate,
+          '',
+          promptJson.extraInstruction,
+          '',
+          '【診断対象者情報】',
+          summary,
+          '',
+          '【診断構成ガイド】',
+          ...(promptJson.structureGuide || []),
+          '',
+          `【語り口の指定】\n${promptJson.tone || ''}`
+        ].join('\n');
 
         const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
           model: 'gpt-4',
@@ -188,11 +185,11 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
         const advice = aiRes.data.choices[0].message.content;
         const filename = `${event.source.userId}_${Date.now()}.pdf`;
-        const filepath = await generatePDF(fullSummary, advice, filename, path.join(__dirname, 'templates', 'shindan01-top.pdf'));
+        const filepath = await generatePDF(summary, advice, filename, path.join(__dirname, 'templates', 'shindan01-top.pdf'));
         const fileUrl = await uploadPDF(filepath);
 
         await client.pushMessage(event.source.userId, [
-          { type: 'text', text: `🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\nこちらからご確認ください：` },
+          { type: 'text', text: promptJson.message1 || `🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果PDFはこちら👇` },
           { type: 'text', text: fileUrl }
         ]);
       } catch (err) {
