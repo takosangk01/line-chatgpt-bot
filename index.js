@@ -154,22 +154,23 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
         let summary = '';
         if (diagnosisName.includes('相性診断')) {
-          const partnerAttrs = getAttributes(partner.year, partner.month, partner.day);
-          summary =
-            ◆ あなた：${user.mbti}／${user.gender}／${user.year}年${user.month}月${user.day}日／動物占い：${attrs.animal}／算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）\n +
-            ◆ 相手　：${partner.mbti}／${partner.gender}／${partner.year}年${partner.month}月${partner.day}日／動物占い：${partnerAttrs.animal}／算命学：${partnerAttrs.stem}（五行：${partnerAttrs.element}／守護神：${partnerAttrs.guardian}）\n +
-            ◆ 診断内容：${topic};
-        } else if (diagnosisName.includes('自分診断')) {
-          summary =
+  const partnerAttrs = getAttributes(partner.year, partner.month, partner.day);
+  summary = `
+◆ あなた：${user.mbti}／${user.gender}／${user.year}年${user.month}月${user.day}日／動物占い：${attrs.animal}／算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）
+◆ 相手　：${partner.mbti}／${partner.gender}／${partner.year}年${partner.month}月${partner.day}日／動物占い：${partnerAttrs.animal}／算命学：${partnerAttrs.stem}（五行：${partnerAttrs.element}／守護神：${partnerAttrs.guardian}）
+◆ 診断内容：${topic}
+`;
+} else if (diagnosisName.includes('自分診断')) {
+          summary =`
             ◆ MBTI：${user.mbti}\n +
             ◆ 動物占い：${attrs.animal}\n +
             ◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）\n +
-            ◆ お悩み：${question || '―'};
+            ◆ お悩み：${question || '―'}`;
         } else {
-          summary =
+          summary =`
             ◆ MBTI：${user.mbti}\n +
             ◆ 動物占い：${attrs.animal}\n +
-            ◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）;
+            ◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）`;
         }
 
         const fullSummary = ${summaryTitle}\n${summary};
