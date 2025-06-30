@@ -212,6 +212,8 @@ app.post('/webhook', middleware(config), async (req, res) => {
   res.status(200).send('OK');
 });
 
-app.listen(3000, () => {
-  console.log('✅ Server is running on port 3000');
+// Render 用ポートバインディング対応
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`✅ Server is running on port ${port}`);
 });
