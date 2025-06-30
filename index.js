@@ -14,9 +14,11 @@ const config = {
 };
 const client = new Client(config);
 
+// データ読み込み
 const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json')));
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json')));
 
+// 干支番号取得
 function getCorrectEtoIndex(year, month, day) {
   const baseDate = new Date(1986, 1, 4);
   const targetDate = new Date(year, month - 1, day);
@@ -24,6 +26,7 @@ function getCorrectEtoIndex(year, month, day) {
   return ((diffDays % 60 + 60) % 60) + 1;
 }
 
+// 日干取得
 function getDayStem(year, month, day) {
   const baseDate = new Date(1873, 0, 12);
   const targetDate = new Date(year, month - 1, day);
@@ -32,6 +35,7 @@ function getDayStem(year, month, day) {
   return stems[(diffDays % 10 + 10) % 10];
 }
 
+// 属性取得
 function getAttributes(year, month, day) {
   const zodiacNumber = getCorrectEtoIndex(year, month, day);
   const animal = animalMap.find(e => parseInt(e.干支番号) === zodiacNumber)?.動物 || '不明';
@@ -45,11 +49,13 @@ function getAttributes(year, month, day) {
   };
 }
 
+// 入力の診断名を抽出
 function extractDiagnosisName(input) {
   const match = input.match(/《《《(.+?)》》》/);
   return match ? match[1] : null;
 }
 
+// 無料トータル診断の入力抽出
 function extractSingleAttributes(input) {
   const match = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})/);
   if (!match) return null;
@@ -57,6 +63,7 @@ function extractSingleAttributes(input) {
   return { year: parseInt(year), month: parseInt(month), day: parseInt(day), mbti };
 }
 
+// プレミアム自分診断の入力抽出
 function extractPremiumAttributes(input) {
   const dateMbtiMatch = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})/);
   const questionMatch = input.match(/・お悩み\s*(.+)/);
@@ -71,6 +78,7 @@ function extractPremiumAttributes(input) {
   };
 }
 
+// 相性診断の入力抽出
 function extractUserPartnerTopic(input) {
   const userMatch = input.match(/・自分\s+(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})\s+(\S+)/);
   const partnerMatch = input.match(/・相手\s+(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})\s+(\S+)/);
@@ -95,6 +103,7 @@ function extractUserPartnerTopic(input) {
   };
 }
 
+// 診断名ごとのプロンプトファイルパス
 function getPromptFilePath(name) {
   if (name.includes('無料トータル診断')) return path.join(__dirname, 'prompts', 'muryo_total.json');
   if (name.includes('自分診断')) return path.join(__dirname, 'prompts', 'premium_trial.json');
@@ -102,14 +111,17 @@ function getPromptFilePath(name) {
   return null;
 }
 
+// Webhookエンドポイント
 app.post('/webhook', middleware(config), async (req, res) => {
   const events = req.body.events;
+
   for (const event of events) {
     if (event.type !== 'message' || event.message.type !== 'text') continue;
 
     const input = event.message.text;
     const diagnosisName = extractDiagnosisName(input);
     const promptPath = getPromptFilePath(diagnosisName);
+
     if (!diagnosisName || !promptPath) {
       await client.replyMessage(event.replyToken, { type: 'text', text: '診断名が認識できませんでした。' });
       continue;
@@ -212,7 +224,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
   res.status(200).send('OK');
 });
 
-// Render 用ポートバインディング対応
+// ✅ ポート自動対応（Render用）
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`✅ Server is running on port ${port}`);
