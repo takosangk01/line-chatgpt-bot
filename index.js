@@ -49,13 +49,13 @@ function getAttributes(year, month, day) {
   };
 }
 
-// 入力の診断名を抽出
+// 診断名抽出
 function extractDiagnosisName(input) {
   const match = input.match(/《《《(.+?)》》》/);
   return match ? match[1] : null;
 }
 
-// 無料トータル診断の入力抽出
+// 各診断タイプ別の入力抽出
 function extractSingleAttributes(input) {
   const match = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})/);
   if (!match) return null;
@@ -63,7 +63,6 @@ function extractSingleAttributes(input) {
   return { year: parseInt(year), month: parseInt(month), day: parseInt(day), mbti };
 }
 
-// プレミアム自分診断の入力抽出
 function extractPremiumAttributes(input) {
   const dateMbtiMatch = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})/);
   const questionMatch = input.match(/・お悩み\s*(.+)/);
@@ -78,7 +77,6 @@ function extractPremiumAttributes(input) {
   };
 }
 
-// 相性診断の入力抽出
 function extractUserPartnerTopic(input) {
   const userMatch = input.match(/・自分\s+(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})\s+(\S+)/);
   const partnerMatch = input.match(/・相手\s+(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})\s+(\S+)/);
@@ -103,7 +101,7 @@ function extractUserPartnerTopic(input) {
   };
 }
 
-// 診断名ごとのプロンプトファイルパス
+// 診断名に応じたプロンプトパス取得
 function getPromptFilePath(name) {
   if (name.includes('無料トータル診断')) return path.join(__dirname, 'prompts', 'muryo_total.json');
   if (name.includes('自分診断')) return path.join(__dirname, 'prompts', 'premium_trial.json');
@@ -111,7 +109,7 @@ function getPromptFilePath(name) {
   return null;
 }
 
-// Webhookエンドポイント
+// Webhook処理
 app.post('/webhook', middleware(config), async (req, res) => {
   const events = req.body.events;
 
@@ -185,12 +183,17 @@ app.post('/webhook', middleware(config), async (req, res) => {
         const fullSummary = `${summaryTitle}\n${summary}`;
         const promptJson = JSON.parse(fs.readFileSync(promptPath, 'utf8'));
         const promptText =
-          `${promptJson.usePromptTemplate || ''}\n\n${promptJson.extraInstruction || ''}\n\n${promptJson.structureGuide?.join('\n') || ''}\n\n${promptJson.tone ? `口調：${promptJson.tone}` : ''}\n\n---\n\n${promptJson.summaryBlockTemplate || ''}`
+          `${promptJson.prompt || ''}`
             .replace(/\$\{user\.mbti\}/g, user.mbti)
-            .replace(/\$\{attrs\.animal\}/g, attrs.animal)
-            .replace(/\$\{attrs\.stem\}/g, attrs.stem)
-            .replace(/\$\{attrs\.element\}/g, attrs.element)
-            .replace(/\$\{attrs\.guardian\}/g, attrs.guardian)
+            .replace(/\$\{user\.gender\}/g, user.gender || '')
+            .replace(/\$\{user\.year\}/g, user.year)
+            .replace(/\$\{user\.month\}/g, user.month)
+            .replace(/\$\{user\.day\}/g, user.day)
+            .replace(/\$\{partner\.mbti\}/g, partner?.mbti || '')
+            .replace(/\$\{partner\.gender\}/g, partner?.gender || '')
+            .replace(/\$\{partner\.year\}/g, partner?.year || '')
+            .replace(/\$\{partner\.month\}/g, partner?.month || '')
+            .replace(/\$\{partner\.day\}/g, partner?.day || '')
             .replace(/\{question\}/g, question || topic || '―')
             .replace(/\{summary\}/g, fullSummary);
 
@@ -224,8 +227,8 @@ app.post('/webhook', middleware(config), async (req, res) => {
   res.status(200).send('OK');
 });
 
-// ✅ ポート自動対応（Render用）
+// Render用: 0.0.0.0 でリッスン
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`✅ Server is running on port ${port}`);
 });
