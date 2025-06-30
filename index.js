@@ -61,7 +61,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
             `◆ MBTI：${user.mbti}\n` +
             `◆ 動物占い：${attrs.animal}\n` +
             `◆ 算命学：${attrs.stem}（五行：${attrs.element}／守護神：${attrs.guardian}）\n` +
-            `◆ お悩み：○○;
+            `◆ お悩み：○○`;
         }
           else {
           summary =
