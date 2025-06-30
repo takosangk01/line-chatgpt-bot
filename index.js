@@ -14,11 +14,9 @@ const config = {
 };
 const client = new Client(config);
 
-// データ読み込み
 const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json')));
 const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json')));
 
-// 干支番号取得
 function getCorrectEtoIndex(year, month, day) {
   const baseDate = new Date(1986, 1, 4);
   const targetDate = new Date(year, month - 1, day);
@@ -26,7 +24,6 @@ function getCorrectEtoIndex(year, month, day) {
   return ((diffDays % 60 + 60) % 60) + 1;
 }
 
-// 日干取得
 function getDayStem(year, month, day) {
   const baseDate = new Date(1873, 0, 12);
   const targetDate = new Date(year, month - 1, day);
@@ -35,7 +32,6 @@ function getDayStem(year, month, day) {
   return stems[(diffDays % 10 + 10) % 10];
 }
 
-// 属性取得
 function getAttributes(year, month, day) {
   const zodiacNumber = getCorrectEtoIndex(year, month, day);
   const animal = animalMap.find(e => parseInt(e.干支番号) === zodiacNumber)?.動物 || '不明';
@@ -49,13 +45,11 @@ function getAttributes(year, month, day) {
   };
 }
 
-// 診断名抽出
 function extractDiagnosisName(input) {
   const match = input.match(/《《《(.+?)》》》/);
   return match ? match[1] : null;
 }
 
-// 各診断タイプ別の入力抽出
 function extractSingleAttributes(input) {
   const match = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})/);
   if (!match) return null;
@@ -101,7 +95,6 @@ function extractUserPartnerTopic(input) {
   };
 }
 
-// 診断名に応じたプロンプトパス取得
 function getPromptFilePath(name) {
   if (name.includes('無料トータル診断')) return path.join(__dirname, 'prompts', 'muryo_total.json');
   if (name.includes('自分診断')) return path.join(__dirname, 'prompts', 'premium_trial.json');
@@ -109,7 +102,6 @@ function getPromptFilePath(name) {
   return null;
 }
 
-// Webhook処理
 app.post('/webhook', middleware(config), async (req, res) => {
   const events = req.body.events;
 
@@ -182,25 +174,34 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
         const fullSummary = `${summaryTitle}\n${summary}`;
         const promptJson = JSON.parse(fs.readFileSync(promptPath, 'utf8'));
-        const promptText =
-          `${promptJson.prompt || ''}`
-            .replace(/\$\{user\.mbti\}/g, user.mbti)
-            .replace(/\$\{user\.gender\}/g, user.gender || '')
-            .replace(/\$\{user\.year\}/g, user.year)
-            .replace(/\$\{user\.month\}/g, user.month)
-            .replace(/\$\{user\.day\}/g, user.day)
-            .replace(/\$\{partner\.mbti\}/g, partner?.mbti || '')
-            .replace(/\$\{partner\.gender\}/g, partner?.gender || '')
-            .replace(/\$\{partner\.year\}/g, partner?.year || '')
-            .replace(/\$\{partner\.month\}/g, partner?.month || '')
-            .replace(/\$\{partner\.day\}/g, partner?.day || '')
-            .replace(/\{question\}/g, question || topic || '―')
-            .replace(/\{summary\}/g, fullSummary);
+
+        const promptTemplate = promptJson.usePromptTemplate || '';
+        const structureGuide = promptJson.structureGuide?.join('\n') || '';
+        const extraInstruction = promptJson.extraInstruction || '';
+
+        const promptText = `
+${promptTemplate}
+
+${extraInstruction}
+
+${structureGuide}`
+          .replace(/\$\{user\.mbti\}/g, user.mbti)
+          .replace(/\$\{user\.gender\}/g, user.gender || '')
+          .replace(/\$\{user\.year\}/g, user.year)
+          .replace(/\$\{user\.month\}/g, user.month)
+          .replace(/\$\{user\.day\}/g, user.day)
+          .replace(/\$\{partner\.mbti\}/g, partner?.mbti || '')
+          .replace(/\$\{partner\.gender\}/g, partner?.gender || '')
+          .replace(/\$\{partner\.year\}/g, partner?.year || '')
+          .replace(/\$\{partner\.month\}/g, partner?.month || '')
+          .replace(/\$\{partner\.day\}/g, partner?.day || '')
+          .replace(/\{question\}/g, question || topic || '―')
+          .replace(/\{summary\}/g, fullSummary);
 
         const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
           model: 'gpt-4',
           messages: [{ role: 'user', content: promptText }],
-          temperature: 0.7,
+          temperature: 0.6,
           max_tokens: 4000
         }, {
           headers: {
@@ -211,7 +212,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
         const advice = aiRes.data.choices[0].message.content;
         const filename = `${event.source.userId}_${Date.now()}.pdf`;
-        const filepath = await generatePDF(fullSummary, advice, filename, path.join(__dirname, 'templates', 'shindan01-top.pdf'));
+        const filepath = await generatePDF(fullSummary, advice, filename, path.join(__dirname, 'templates', 'shindan01-top.pdf'), summaryTitle);
         const fileUrl = await uploadPDF(filepath);
 
         await client.pushMessage(event.source.userId, [
@@ -227,7 +228,6 @@ app.post('/webhook', middleware(config), async (req, res) => {
   res.status(200).send('OK');
 });
 
-// Render用: 0.0.0.0 でリッスン
 const port = process.env.PORT || 3000;
 app.listen(port, '0.0.0.0', () => {
   console.log(`✅ Server is running on port ${port}`);
