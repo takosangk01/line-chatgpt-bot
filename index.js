@@ -1,4 +1,14 @@
 require('dotenv').config();
+
+const crypto = require('crypto');
+
+function validateSignature(req) {
+  const signature = req.headers['x-line-signature'];
+  const body = JSON.stringify(req.body);
+  const hash = crypto.createHmac('sha256', process.env.CHANNEL_SECRET).update(body).digest('base64');
+  return signature === hash;
+}
+
 const express = require('express');
 const { Client, middleware } = require('@line/bot-sdk');
 const axios = require('axios');
@@ -101,7 +111,20 @@ function getPromptFilePath(name) {
 }
 
 app.post('/webhook', middleware(config), async (req, res) => {
+  if (!validateSignature(req)) {
+    return res.status(403).send('Invalid signature');
+  }
+
   const events = req.body.events;
+
+  // ✅ Lステップ中継追加
+  for (const event of events) {
+    try {
+      await axios.post(process.env.LSTEP_WEBHOOK_URL, { events: [event] });
+    } catch (err) {
+      console.error('Lステップ転送エラー:', err.message);
+    }
+  }
 
   for (const event of events) {
     if (event.type !== 'message' || event.message.type !== 'text') continue;
