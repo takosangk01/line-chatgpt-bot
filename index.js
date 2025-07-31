@@ -8,6 +8,17 @@ const path = require('path');
 const { generatePDF } = require('./pdfGenerator');
 const { uploadPDF } = require('./uploader');
 
+// 環境変数のチェック
+const requiredEnvVars = ['CHANNEL_ACCESS_TOKEN', 'CHANNEL_SECRET', 'OPENAI_API_KEY'];
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.error('❌ 必要な環境変数が設定されていません:', missingVars);
+  process.exit(1);
+}
+
+console.log('✅ 環境変数チェック完了');
+
 const app = express();
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
@@ -15,8 +26,31 @@ const config = {
 };
 const client = new Client(config);
 
-const animalMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'corrected_animal_map_60.json')));
-const stemMap = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json')));
+// 必要なファイルの存在チェック
+const requiredFiles = [
+  path.join(__dirname, 'data', 'corrected_animal_map_60.json'),
+  path.join(__dirname, 'data', 'sanmeigaku_day_stem_map_extended.json')
+];
+
+let animalMap, stemMap;
+
+try {
+  console.log('必要なファイルを読み込み中...');
+  
+  requiredFiles.forEach(file => {
+    if (!fs.existsSync(file)) {
+      throw new Error(`必要なファイルが見つかりません: ${file}`);
+    }
+  });
+  
+  animalMap = JSON.parse(fs.readFileSync(requiredFiles[0]));
+  stemMap = JSON.parse(fs.readFileSync(requiredFiles[1]));
+  
+  console.log('✅ データファイルの読み込み完了');
+} catch (error) {
+  console.error('❌ データファイルの読み込みエラー:', error.message);
+  process.exit(1);
+}
 
 const titleMap = {
   '無料トータル診断': '◆◆ あなただけのトータル診断 ◆◆',
@@ -37,40 +71,87 @@ function extractDiagnosisName(input) {
 }
 
 function extractUserData(input) {
-  // より柔軟な正規表現：日付とMBTIの間に改行、スペース、全角スペースを許可
-  const match = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})/);
-  const question = input.match(/・お悩み\s*(.+)/)?.[1]?.trim();
+  console.log('extractUserData: 入力データ -', input);
   
-  if (!match) {
-    console.log('extractUserData: マッチしませんでした。入力:', input);
-    return null;
+  // パターン1: 生年月日：YYYY年MM月DD日 + MBTI：XXXX 形式
+  let match = input.match(/生年月日[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  let mbtiMatch = input.match(/MBTI[：:]\s*([A-Z]{4})/);
+  
+  if (match && mbtiMatch) {
+    const [, y, m, d] = match;
+    const mbti = mbtiMatch[1];
+    const question = input.match(/・お悩み\s*(.+)/)?.[1]?.trim();
+    
+    console.log('extractUserData: パターン1で抽出成功 -', { year: +y, month: +m, day: +d, mbti, question });
+    return { year: +y, month: +m, day: +d, mbti, question };
   }
   
-  const [, y, m, d, mbti] = match;
-  console.log('extractUserData: 抽出成功 -', { year: +y, month: +m, day: +d, mbti, question });
-  return { year: +y, month: +m, day: +d, mbti, question };
+  // パターン2: YYYY年MM月DD日 XXXX 形式（従来のパターン）
+  match = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})/);
+  if (match) {
+    const [, y, m, d, mbti] = match;
+    const question = input.match(/・お悩み\s*(.+)/)?.[1]?.trim();
+    
+    console.log('extractUserData: パターン2で抽出成功 -', { year: +y, month: +m, day: +d, mbti, question });
+    return { year: +y, month: +m, day: +d, mbti, question };
+  }
+  
+  console.log('extractUserData: どのパターンにもマッチしませんでした。');
+  return null;
 }
 
 function extractMatchData(input) {
-  // 相性診断用の正規表現も同様に修正
+  console.log('extractMatchData: 入力データ -', input);
+  
+  // パターン1: 生年月日とMBTIが別行の形式
+  const uDateMatch = input.match(/・自分[\s\n]*生年月日[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  const uMbtiMatch = input.match(/・自分.*?MBTI[：:]\s*([A-Z]{4})/s);
+  const uGenderMatch = input.match(/・自分.*?性別[：:]\s*(\S+)/s) || input.match(/・自分.*?([男女性])/);
+  
+  const pDateMatch = input.match(/・相手[\s\n]*生年月日[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  const pMbtiMatch = input.match(/・相手.*?MBTI[：:]\s*([A-Z]{4})/s);
+  const pGenderMatch = input.match(/・相手.*?性別[：:]\s*(\S+)/s) || input.match(/・相手.*?([男女性])/);
+  
+  // パターン2: 従来の1行形式
   const u = input.match(/・自分\s+(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})[\s\n　]*(\S+)/);
   const p = input.match(/・相手\s+(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})[\s\n　]*(\S+)/);
+  
   const topic = input.match(/・二人の関係性\s*(.+)/)?.[1]?.trim();
   
-  if (!u || !p || !topic) {
+  let user, partner;
+  
+  // パターン1で解析
+  if (uDateMatch && uMbtiMatch && pDateMatch && pMbtiMatch) {
+    user = { 
+      year: +uDateMatch[1], 
+      month: +uDateMatch[2], 
+      day: +uDateMatch[3], 
+      mbti: uMbtiMatch[1], 
+      gender: uGenderMatch?.[1] || '不明' 
+    };
+    partner = { 
+      year: +pDateMatch[1], 
+      month: +pDateMatch[2], 
+      day: +pDateMatch[3], 
+      mbti: pMbtiMatch[1], 
+      gender: pGenderMatch?.[1] || '不明' 
+    };
+  }
+  // パターン2で解析
+  else if (u && p) {
+    user = { year: +u[1], month: +u[2], day: +u[3], mbti: u[4], gender: u[5] };
+    partner = { year: +p[1], month: +p[2], day: +p[3], mbti: p[4], gender: p[5] };
+  }
+  
+  if (!user || !partner || !topic) {
     console.log('extractMatchData: マッチしませんでした。');
-    console.log('自分:', u);
-    console.log('相手:', p);
+    console.log('自分:', user);
+    console.log('相手:', partner);
     console.log('関係性:', topic);
     return null;
   }
   
-  const result = {
-    user: { year: +u[1], month: +u[2], day: +u[3], mbti: u[4], gender: u[5] },
-    partner: { year: +p[1], month: +p[2], day: +p[3], mbti: p[4], gender: p[5] },
-    topic
-  };
-  
+  const result = { user, partner, topic };
   console.log('extractMatchData: 抽出成功 -', result);
   return result;
 }
@@ -137,6 +218,20 @@ function replaceVars(str, vars) {
   });
 }
 
+// ヘルスチェックエンドポイント
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    message: 'LINE診断システムが正常に動作しています',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ヘルスチェック用
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
+
 app.post('/webhook', middleware(config), async (req, res) => {
   if (!validateSignature(req)) return res.status(403).send('Invalid signature');
 
@@ -198,7 +293,12 @@ app.post('/webhook', middleware(config), async (req, res) => {
       const partnerAttr = partner ? getAttributes(partner.year, partner.month, partner.day) : {};
 
       // プロンプトファイルを読み込み
-      const promptData = JSON.parse(fs.readFileSync(path.join(__dirname, 'prompts', promptFile), 'utf8'));
+      const promptFilePath = path.join(__dirname, 'prompts', promptFile);
+      if (!fs.existsSync(promptFilePath)) {
+        throw new Error(`プロンプトファイルが見つかりません: ${promptFilePath}`);
+      }
+      
+      const promptData = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
       
       // プロンプトファイルの構造に合わせて変数を構築
       const vars = {
