@@ -81,73 +81,163 @@ function getPromptFilePath(name) {
 }
 
 function replaceVars(str, vars) {
-  return str.replace(/\$\{(.*?)\}/g, (_, key) => vars[key] || '').replace(/\{(.*?)\}/g, (_, key) => vars[key] || '');
+  return str.replace(/\$\{(.*?)\}/g, (_, key) => {
+    // ネストされたオブジェクトのアクセスをサポート
+    const keys = key.split('.');
+    let value = vars;
+    for (const k of keys) {
+      value = value?.[k];
+    }
+    return value || '';
+  }).replace(/\{(.*?)\}/g, (_, key) => {
+    // ネストされたオブジェクトのアクセスをサポート
+    const keys = key.split('.');
+    let value = vars;
+    for (const k of keys) {
+      value = value?.[k];
+    }
+    return value || '';
+  });
 }
 
 app.post('/webhook', middleware(config), async (req, res) => {
   if (!validateSignature(req)) return res.status(403).send('Invalid signature');
 
   for (const event of req.body.events) {
-    try { await axios.post(process.env.LSTEP_WEBHOOK_URL, { events: [event] }); } catch (e) {}
+    try { 
+      await axios.post(process.env.LSTEP_WEBHOOK_URL, { events: [event] }); 
+    } catch (e) {
+      console.log('LSTEP webhook error:', e.message);
+    }
+    
     if (event.type !== 'message' || event.message.type !== 'text') continue;
 
     const input = event.message.text;
     const diagnosis = extractDiagnosisName(input);
     const promptFile = getPromptFilePath(diagnosis);
-    if (!diagnosis || !promptFile) return client.replyMessage(event.replyToken, { type: 'text', text: '診断名が不明です。' });
+    
+    if (!diagnosis || !promptFile) {
+      return client.replyMessage(event.replyToken, { 
+        type: 'text', 
+        text: '診断名が不明です。' 
+      });
+    }
 
     let user, partner, topic, question;
+    
     if (diagnosis.includes('相性診断')) {
       const data = extractMatchData(input);
-      if (!data) return client.replyMessage(event.replyToken, { type: 'text', text: '入力に不備があります。' });
+      if (!data) {
+        return client.replyMessage(event.replyToken, { 
+          type: 'text', 
+          text: '入力に不備があります。' 
+        });
+      }
       ({ user, partner, topic } = data);
     } else {
       const data = extractUserData(input);
-      if (!data) return client.replyMessage(event.replyToken, { type: 'text', text: '入力に不備があります。' });
-      user = data; question = data.question;
+      if (!data) {
+        return client.replyMessage(event.replyToken, { 
+          type: 'text', 
+          text: '入力に不備があります。' 
+        });
+      }
+      user = data; 
+      question = data.question;
     }
 
-    await client.replyMessage(event.replyToken, { type: 'text', text: '🐻‍❄️ 診断を作成中です…' });
-
-    const profile = await client.getProfile(event.source.userId);
-    const userName = profile.displayName;
-    const userAttr = getAttributes(user.year, user.month, user.day);
-    const partnerAttr = partner ? getAttributes(partner.year, partner.month, partner.day) : {};
-
-    const summary = diagnosis.includes('相性診断') ?
-      `◆ あなた：${user.mbti}/${user.gender}/${user.year}年${user.month}月${user.day}日 動物：${userAttr.animal} 算命：${userAttr.stem}（${userAttr.element}/${userAttr.guardian}）\n◆ 相手：${partner.mbti}/${partner.gender}/${partner.year}年${partner.month}月${partner.day}日 動物：${partnerAttr.animal} 算命：${partnerAttr.stem}（${partnerAttr.element}/${partnerAttr.guardian}）\n◆ 関係性：${topic}`
-      : `◆ MBTI：${user.mbti}\n◆ 動物占い：${userAttr.animal}\n◆ 算命学：${userAttr.stem}（五行：${userAttr.element}／守護神：${userAttr.guardian}）\n◆ お悩み：${question || '―'}`;
-
-    const promptJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'prompts', promptFile), 'utf8'));
-    const vars = {
-      ...user, ...userAttr,
-      ...(partner || {}), ...partnerAttr,
-      question: question || topic || '―',
-      summary,
-    };
-    const prompt = `${promptJson.usePromptTemplate}\n\n${promptJson.extraInstruction}\n\n${replaceVars(promptJson.structureGuide.join('\n'), vars)}`;
-
-    const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-4',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.6,
-      max_tokens: 4000
-    }, {
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
-      }
+    await client.replyMessage(event.replyToken, { 
+      type: 'text', 
+      text: '🐻‍❄️ 診断を作成中です…' 
     });
 
-    const advice = aiRes.data.choices[0].message.content;
-    const filename = `${event.source.userId}_${Date.now()}.pdf`;
-    const filepath = await generatePDF(`${titleMap[diagnosis]}\n${summary}`, advice, filename, path.join(__dirname, 'templates', 'shindan01-top.pdf'), titleMap[diagnosis]);
-    const fileUrl = await uploadPDF(filepath);
+    try {
+      const profile = await client.getProfile(event.source.userId);
+      const userName = profile.displayName;
+      const userAttr = getAttributes(user.year, user.month, user.day);
+      const partnerAttr = partner ? getAttributes(partner.year, partner.month, partner.day) : {};
 
-    await client.pushMessage(event.source.userId, [
-      { type: 'text', text: `🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\nこちらからご確認ください：` },
-      { type: 'text', text: fileUrl }
-    ]);
+      // 相性診断の場合のサマリー
+      const summary = diagnosis.includes('相性診断') ?
+        `◆ あなた：${user.mbti}/${user.gender}/${user.year}年${user.month}月${user.day}日 動物：${userAttr.animal} 算命：${userAttr.stem}（${userAttr.element}/${userAttr.guardian}）\n◆ 相手：${partner.mbti}/${partner.gender}/${partner.year}年${partner.month}月${partner.day}日 動物：${partnerAttr.animal} 算命：${partnerAttr.stem}（${partnerAttr.element}/${partnerAttr.guardian}）\n◆ 関係性：${topic}`
+        : `◆ MBTI：${user.mbti}\n◆ 動物占い：${userAttr.animal}\n◆ 算命学：${userAttr.stem}（五行：${userAttr.element}／守護神：${userAttr.guardian}）\n◆ お悩み：${question || '―'}`;
+
+      // プロンプトファイルを読み込み
+      const promptJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'prompts', promptFile), 'utf8'));
+      
+      // プロンプトファイルの構造に合わせて変数を構築
+      const vars = {
+        user: {
+          mbti: user.mbti,
+          year: user.year,
+          month: user.month,
+          day: user.day,
+          gender: user.gender || null
+        },
+        attrs: {
+          animal: userAttr.animal,
+          stem: userAttr.stem,
+          element: userAttr.element,
+          guardian: userAttr.guardian
+        },
+        // 相性診断用の変数
+        partner: partner ? {
+          mbti: partner.mbti,
+          year: partner.year,
+          month: partner.month,
+          day: partner.day,
+          gender: partner.gender
+        } : null,
+        partnerAttrs: partner ? {
+          animal: partnerAttr.animal,
+          stem: partnerAttr.stem,
+          element: partnerAttr.element,
+          guardian: partnerAttr.guardian
+        } : null,
+        // 共通変数
+        question: question || topic || '―',
+        topic: topic || '―',
+        summary: summary
+      };
+
+      // プロンプトを構築
+      const prompt = `${promptJson.usePromptTemplate}\n\n${promptJson.extraInstruction}\n\n${replaceVars(promptJson.structureGuide.join('\n'), vars)}`;
+
+      // OpenAI API呼び出し
+      const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.6,
+        max_tokens: 4000
+      }, {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const advice = aiRes.data.choices[0].message.content;
+      const filename = `${event.source.userId}_${Date.now()}.pdf`;
+      const filepath = await generatePDF(
+        `${titleMap[diagnosis]}\n${summary}`, 
+        advice, 
+        filename, 
+        path.join(__dirname, 'templates', 'shindan01-top.pdf'), 
+        titleMap[diagnosis]
+      );
+      const fileUrl = await uploadPDF(filepath);
+
+      await client.pushMessage(event.source.userId, [
+        { type: 'text', text: `🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\nこちらからご確認ください：` },
+        { type: 'text', text: fileUrl }
+      ]);
+
+    } catch (error) {
+      console.error('Error processing diagnosis:', error);
+      await client.pushMessage(event.source.userId, [
+        { type: 'text', text: '🐻‍❄️ 申し訳ございません。診断の処理中にエラーが発生しました。もう一度お試しください。' }
+      ]);
+    }
   }
 
   res.status(200).send('OK');
