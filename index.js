@@ -197,16 +197,8 @@ app.post('/webhook', middleware(config), async (req, res) => {
       const userAttr = getAttributes(user.year, user.month, user.day);
       const partnerAttr = partner ? getAttributes(partner.year, partner.month, partner.day) : {};
 
-      // 相性診断の場合のサマリー
-      const summary = diagnosis.includes('相性診断') ?
-        `◆ あなた：${user.mbti}/${user.gender}/${user.year}年${user.month}月${user.day}日 動物：${userAttr.animal} 算命：${userAttr.stem}（${userAttr.element}/${userAttr.guardian}）\n◆ 相手：${partner.mbti}/${partner.gender}/${partner.year}年${partner.month}月${partner.day}日 動物：${partnerAttr.animal} 算命：${partnerAttr.stem}（${partnerAttr.element}/${partnerAttr.guardian}）\n◆ 関係性：${topic}`
-        : `◆ MBTI：${user.mbti}\n◆ 動物占い：${userAttr.animal}\n◆ 算命学：${userAttr.stem}（五行：${userAttr.element}／守護神：${userAttr.guardian}）\n◆ お悩み：${question || '―'}`;
-
       // プロンプトファイルを読み込み
-      const promptJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'prompts', promptFile), 'utf8'));
-      
-      // プロンプトファイルを読み込み
-      const promptJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'prompts', promptFile), 'utf8'));
+      const promptData = JSON.parse(fs.readFileSync(path.join(__dirname, 'prompts', promptFile), 'utf8'));
       
       // プロンプトファイルの構造に合わせて変数を構築
       const vars = {
@@ -252,8 +244,8 @@ app.post('/webhook', middleware(config), async (req, res) => {
         summary = `◆ あなた：${user.mbti}/${user.gender}/${user.year}年${user.month}月${user.day}日 動物：${userAttr.animal} 算命：${userAttr.stem}（${userAttr.element}/${userAttr.guardian}）\n◆ 相手：${partner.mbti}/${partner.gender}/${partner.year}年${partner.month}月${partner.day}日 動物：${partnerAttr.animal} 算命：${partnerAttr.stem}（${partnerAttr.element}/${partnerAttr.guardian}）\n◆ 関係性：${topic}`;
       } else {
         // 個人診断用：プロンプトファイルのsummaryBlockTemplateを使用
-        summary = promptJson.summaryBlockTemplate ? 
-          replaceVars(promptJson.summaryBlockTemplate, vars) :
+        summary = promptData.summaryBlockTemplate ? 
+          replaceVars(promptData.summaryBlockTemplate, vars) :
           `◆ MBTI：${user.mbti}\n◆ 動物占い：${userAttr.animal}\n◆ 算命学：${userAttr.stem}（五行：${userAttr.element}／守護神：${userAttr.guardian}）\n◆ お悩み：${question || '―'}`;
       }
 
@@ -261,7 +253,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
       vars.summary = summary;
 
       // プロンプトを構築
-      const prompt = `${promptJson.usePromptTemplate}\n\n${promptJson.extraInstruction}\n\n${replaceVars(promptJson.structureGuide.join('\n'), vars)}`;
+      const prompt = `${promptData.usePromptTemplate}\n\n${promptData.extraInstruction}\n\n${replaceVars(promptData.structureGuide.join('\n'), vars)}`;
 
       // OpenAI API呼び出し
       const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
