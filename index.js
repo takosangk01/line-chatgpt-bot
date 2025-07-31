@@ -37,23 +37,42 @@ function extractDiagnosisName(input) {
 }
 
 function extractUserData(input) {
-  const match = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})/);
+  // より柔軟な正規表現：日付とMBTIの間に改行、スペース、全角スペースを許可
+  const match = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})/);
   const question = input.match(/・お悩み\s*(.+)/)?.[1]?.trim();
-  if (!match) return null;
+  
+  if (!match) {
+    console.log('extractUserData: マッチしませんでした。入力:', input);
+    return null;
+  }
+  
   const [, y, m, d, mbti] = match;
+  console.log('extractUserData: 抽出成功 -', { year: +y, month: +m, day: +d, mbti, question });
   return { year: +y, month: +m, day: +d, mbti, question };
 }
 
 function extractMatchData(input) {
-  const u = input.match(/・自分\s+(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})\s+(\S+)/);
-  const p = input.match(/・相手\s+(\d{4})年(\d{1,2})月(\d{1,2})日\s+([A-Z]{4})\s+(\S+)/);
+  // 相性診断用の正規表現も同様に修正
+  const u = input.match(/・自分\s+(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})[\s\n　]*(\S+)/);
+  const p = input.match(/・相手\s+(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})[\s\n　]*(\S+)/);
   const topic = input.match(/・二人の関係性\s*(.+)/)?.[1]?.trim();
-  if (!u || !p || !topic) return null;
-  return {
+  
+  if (!u || !p || !topic) {
+    console.log('extractMatchData: マッチしませんでした。');
+    console.log('自分:', u);
+    console.log('相手:', p);
+    console.log('関係性:', topic);
+    return null;
+  }
+  
+  const result = {
     user: { year: +u[1], month: +u[2], day: +u[3], mbti: u[4], gender: u[5] },
     partner: { year: +p[1], month: +p[2], day: +p[3], mbti: p[4], gender: p[5] },
     topic
   };
+  
+  console.log('extractMatchData: 抽出成功 -', result);
+  return result;
 }
 
 function getAttributes(year, month, day) {
@@ -104,10 +123,13 @@ app.post('/webhook', middleware(config), async (req, res) => {
   if (!validateSignature(req)) return res.status(403).send('Invalid signature');
 
   for (const event of req.body.events) {
-    try { 
-      await axios.post(process.env.LSTEP_WEBHOOK_URL, { events: [event] }); 
-    } catch (e) {
-      console.log('LSTEP webhook error:', e.message);
+    // LSTEPのWebhook送信（URLが設定されている場合のみ）
+    if (process.env.LSTEP_WEBHOOK_URL && process.env.LSTEP_WEBHOOK_URL.startsWith('http')) {
+      try { 
+        await axios.post(process.env.LSTEP_WEBHOOK_URL, { events: [event] }); 
+      } catch (e) {
+        console.log('LSTEP webhook error:', e.message);
+      }
     }
     
     if (event.type !== 'message' || event.message.type !== 'text') continue;
