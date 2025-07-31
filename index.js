@@ -100,22 +100,40 @@ function getPromptFilePath(name) {
 }
 
 function replaceVars(str, vars) {
-  return str.replace(/\$\{(.*?)\}/g, (_, key) => {
+  return str.replace(/\$\{(.*?)\}/g, (match, key) => {
+    console.log(`変数置換: ${key}`);
+    
     // ネストされたオブジェクトのアクセスをサポート
     const keys = key.split('.');
     let value = vars;
     for (const k of keys) {
       value = value?.[k];
+      if (value === undefined) {
+        console.log(`変数 ${key} が見つかりません。現在の値:`, value);
+        break;
+      }
     }
-    return value || '';
-  }).replace(/\{(.*?)\}/g, (_, key) => {
+    
+    const result = value || '';
+    console.log(`${key} = "${result}"`);
+    return result;
+  }).replace(/\{(.*?)\}/g, (match, key) => {
+    console.log(`変数置換({}): ${key}`);
+    
     // ネストされたオブジェクトのアクセスをサポート
     const keys = key.split('.');
     let value = vars;
     for (const k of keys) {
       value = value?.[k];
+      if (value === undefined) {
+        console.log(`変数 ${key} が見つかりません。現在の値:`, value);
+        break;
+      }
     }
-    return value || '';
+    
+    const result = value || '';
+    console.log(`${key} = "${result}"`);
+    return result;
   });
 }
 
@@ -187,8 +205,12 @@ app.post('/webhook', middleware(config), async (req, res) => {
       // プロンプトファイルを読み込み
       const promptJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'prompts', promptFile), 'utf8'));
       
+      // プロンプトファイルを読み込み
+      const promptJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'prompts', promptFile), 'utf8'));
+      
       // プロンプトファイルの構造に合わせて変数を構築
       const vars = {
+        // プロンプトファイルで使用される変数名に合わせる
         user: {
           mbti: user.mbti,
           year: user.year,
@@ -218,9 +240,25 @@ app.post('/webhook', middleware(config), async (req, res) => {
         } : null,
         // 共通変数
         question: question || topic || '―',
-        topic: topic || '―',
-        summary: summary
+        topic: topic || '―'
       };
+
+      console.log('作成された変数:', JSON.stringify(vars, null, 2));
+
+      // プロンプトファイルのsummaryBlockTemplateを使用してサマリーを作成
+      let summary;
+      if (diagnosis.includes('相性診断')) {
+        // 相性診断用のサマリー（既存のロジックを維持）
+        summary = `◆ あなた：${user.mbti}/${user.gender}/${user.year}年${user.month}月${user.day}日 動物：${userAttr.animal} 算命：${userAttr.stem}（${userAttr.element}/${userAttr.guardian}）\n◆ 相手：${partner.mbti}/${partner.gender}/${partner.year}年${partner.month}月${partner.day}日 動物：${partnerAttr.animal} 算命：${partnerAttr.stem}（${partnerAttr.element}/${partnerAttr.guardian}）\n◆ 関係性：${topic}`;
+      } else {
+        // 個人診断用：プロンプトファイルのsummaryBlockTemplateを使用
+        summary = promptJson.summaryBlockTemplate ? 
+          replaceVars(promptJson.summaryBlockTemplate, vars) :
+          `◆ MBTI：${user.mbti}\n◆ 動物占い：${userAttr.animal}\n◆ 算命学：${userAttr.stem}（五行：${userAttr.element}／守護神：${userAttr.guardian}）\n◆ お悩み：${question || '―'}`;
+      }
+
+      // varsにsummaryを追加
+      vars.summary = summary;
 
       // プロンプトを構築
       const prompt = `${promptJson.usePromptTemplate}\n\n${promptJson.extraInstruction}\n\n${replaceVars(promptJson.structureGuide.join('\n'), vars)}`;
