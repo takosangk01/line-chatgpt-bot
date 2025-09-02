@@ -74,17 +74,17 @@ function extractUserData(input) {
   console.log('extractUserData: 入力データ -', input);
   
   // パターン1: 生年月日：YYYY年MM月DD日 + MBTI：XXXX 形式
-let match = input.match(/生年月日[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
-let mbtiMatch = input.match(/MBTI[：:]\s*([A-Z]{4})/i);  // ← iフラグ
+  let match = input.match(/生年月日[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  let mbtiMatch = input.match(/MBTI[：:]\s*([A-Z]{4})/i);  // ← iフラグ
 
-if (match && mbtiMatch) {
-  const [, y, m, d] = match;
-  const mbti = (mbtiMatch[1] || "").toUpperCase();
-  const question = input.match(/・お悩み\s*(.+)/)?.[1]?.trim();
+  if (match && mbtiMatch) {
+    const [, y, m, d] = match;
+    const mbti = (mbtiMatch[1] || "").toUpperCase();
+    const question = input.match(/・お悩み\s*(.+)/)?.[1]?.trim();
 
-  console.log('extractUserData: パターン1で抽出成功 -', { year: +y, month: +m, day: +d, mbti, question });
-  return { year: +y, month: +m, day: +d, mbti, question };
-}
+    console.log('extractUserData: パターン1で抽出成功 -', { year: +y, month: +m, day: +d, mbti, question });
+    return { year: +y, month: +m, day: +d, mbti, question };
+  }
   
   // パターン2: YYYY年MM月DD日 XXXX 形式（従来のパターン）
   match = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})/);
@@ -255,27 +255,46 @@ app.post('/webhook', middleware(config), async (req, res) => {
     if (event.type !== 'message' || event.message.type !== 'text') continue;
 
     const input = event.message.text;
-    const diagnosis = extractDiagnosisName(input) ?? "";
+    const diagnosis = extractDiagnosisName(input);
+    
+    // 診断名が含まれていない場合は、通常のメッセージとして処理をスキップ
+    if (!diagnosis) {
+      console.log('通常のメッセージを受信（診断対象外）:', input);
+      continue; // 次のイベントの処理へ
+    }
+    
+    // 診断名があるが、対応するプロンプトファイルがない場合
     const promptFile = getPromptFilePath(diagnosis);
+    if (!promptFile) {
+      console.log('未対応の診断名:', diagnosis);
+      await client.replyMessage(event.replyToken, { 
+        type: 'text', 
+        text: '🐻‍❄️ 申し訳ございません。その診断は現在対応しておりません。' 
+      });
+      continue;
+    }
 
+    // ここから診断処理
     let user, partner, topic, question;
     
     if (diagnosis.includes('相性診断')) {
       const data = extractMatchData(input);
       if (!data) {
-        return client.replyMessage(event.replyToken, { 
+        await client.replyMessage(event.replyToken, { 
           type: 'text', 
           text: '入力に不備があります。もう一度お試しくださいm(_ _)m' 
         });
+        continue;
       }
       ({ user, partner, topic } = data);
     } else {
       const data = extractUserData(input);
       if (!data) {
-        return client.replyMessage(event.replyToken, { 
+        await client.replyMessage(event.replyToken, { 
           type: 'text', 
           text: '入力に不備があります。もう一度お試しくださいm(_ _)m' 
         });
+        continue;
       }
       user = data; 
       question = data.question;
