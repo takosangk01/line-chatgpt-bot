@@ -257,13 +257,6 @@ app.post('/webhook', middleware(config), async (req, res) => {
     const input = event.message.text;
     const diagnosis = extractDiagnosisName(input) ?? "";
     const promptFile = getPromptFilePath(diagnosis);
-    
-    if (!diagnosis || !promptFile) {
-      return client.replyMessage(event.replyToken, { 
-        type: 'text', 
-        text: '診断名が不明です。' 
-      });
-    }
 
     let user, partner, topic, question;
     
