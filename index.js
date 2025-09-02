@@ -74,17 +74,17 @@ function extractUserData(input) {
   console.log('extractUserData: 入力データ -', input);
   
   // パターン1: 生年月日：YYYY年MM月DD日 + MBTI：XXXX 形式
-  let match = input.match(/生年月日[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
-  let mbtiMatch = input.match(/MBTI[：:]\s*([A-Z]{4})/);
-  
-  if (match && mbtiMatch) {
-    const [, y, m, d] = match;
-    const mbti = mbtiMatch[1];
-    const question = input.match(/・お悩み\s*(.+)/)?.[1]?.trim();
-    
-    console.log('extractUserData: パターン1で抽出成功 -', { year: +y, month: +m, day: +d, mbti, question });
-    return { year: +y, month: +m, day: +d, mbti, question };
-  }
+let match = input.match(/生年月日[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
+let mbtiMatch = input.match(/MBTI[：:]\s*([A-Z]{4})/i);  // ← iフラグ
+
+if (match && mbtiMatch) {
+  const [, y, m, d] = match;
+  const mbti = (mbtiMatch[1] || "").toUpperCase();
+  const question = input.match(/・お悩み\s*(.+)/)?.[1]?.trim();
+
+  console.log('extractUserData: パターン1で抽出成功 -', { year: +y, month: +m, day: +d, mbti, question });
+  return { year: +y, month: +m, day: +d, mbti, question };
+}
   
   // パターン2: YYYY年MM月DD日 XXXX 形式（従来のパターン）
   match = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})/);
@@ -172,10 +172,17 @@ function getAttributes(year, month, day) {
   };
 }
 
-function getPromptFilePath(name) {
+function normalizeText(input) {
+  return (input ?? "").toString().normalize("NFKC").trim();
+}
+
+function getPromptFilePath(nameRaw) {
+  const name = normalizeText(nameRaw);
+  if (!name) return null;
+
   if (name.includes('無料トータル診断')) return 'muryo_total.json';
-  if (name.includes('自分診断')) return 'premium_trial.json';
-  if (name.includes('相性診断')) return 'premium_match_trial.json';
+  if (name.includes('自分診断'))         return 'premium_trial.json';
+  if (name.includes('相性診断'))         return 'premium_match_trial.json';
   if (name.includes('取扱説明書プレミアム')) return 'premium_manual.json';
   return null;
 }
@@ -248,7 +255,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
     if (event.type !== 'message' || event.message.type !== 'text') continue;
 
     const input = event.message.text;
-    const diagnosis = extractDiagnosisName(input);
+    const diagnosis = extractDiagnosisName(input) ?? "";
     const promptFile = getPromptFilePath(diagnosis);
     
     if (!diagnosis || !promptFile) {
@@ -265,7 +272,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
       if (!data) {
         return client.replyMessage(event.replyToken, { 
           type: 'text', 
-          text: '入力に不備があります。' 
+          text: '入力に不備があります。もう一度お試しくださいm(_ _)m' 
         });
       }
       ({ user, partner, topic } = data);
@@ -274,7 +281,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
       if (!data) {
         return client.replyMessage(event.replyToken, { 
           type: 'text', 
-          text: '入力に不備があります。' 
+          text: '入力に不備があります。もう一度お試しくださいm(_ _)m' 
         });
       }
       user = data; 
