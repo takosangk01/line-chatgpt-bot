@@ -1,4 +1,3 @@
-```javascript
 require('dotenv').config();
 const express = require('express');
 const { Client, middleware } = require('@line/bot-sdk');
@@ -40,7 +39,7 @@ try {
   
   requiredFiles.forEach(file => {
     if (!fs.existsSync(file)) {
-      throw new Error(`必要なファイルが見つかりません: ${file}`);
+      throw new Error('必要なファイルが見つかりません: ' + file);
     }
   });
   
@@ -68,7 +67,8 @@ function validateSignature(req) {
 }
 
 function extractDiagnosisName(input) {
-  return input.match(/《《《(.+?)》》》/)?.[1]?.trim() || null;
+  const match = input.match(/《《《(.+?)》》》/);
+  return match ? match[1].trim() : null;
 }
 
 function extractUserData(input) {
@@ -76,12 +76,15 @@ function extractUserData(input) {
   
   // パターン1: 生年月日：YYYY年MM月DD日 + MBTI：XXXX 形式
   let match = input.match(/生年月日[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
-  let mbtiMatch = input.match(/MBTI[：:]\s*([A-Z]{4})/i);  // ← iフラグ
+  let mbtiMatch = input.match(/MBTI[：:]\s*([A-Z]{4})/i);
 
   if (match && mbtiMatch) {
-    const [, y, m, d] = match;
+    const y = match[1];
+    const m = match[2];
+    const d = match[3];
     const mbti = (mbtiMatch[1] || "").toUpperCase();
-    const question = input.match(/・お悩み\s*(.+)/)?.[1]?.trim();
+    const questionMatch = input.match(/・お悩み\s*(.+)/);
+    const question = questionMatch ? questionMatch[1].trim() : undefined;
 
     console.log('extractUserData: パターン1で抽出成功 -', { year: +y, month: +m, day: +d, mbti, question });
     return { year: +y, month: +m, day: +d, mbti, question };
@@ -90,8 +93,12 @@ function extractUserData(input) {
   // パターン2: YYYY年MM月DD日 XXXX 形式（従来のパターン）
   match = input.match(/(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})/);
   if (match) {
-    const [, y, m, d, mbti] = match;
-    const question = input.match(/・お悩み\s*(.+)/)?.[1]?.trim();
+    const y = match[1];
+    const m = match[2];
+    const d = match[3];
+    const mbti = match[4];
+    const questionMatch = input.match(/・お悩み\s*(.+)/);
+    const question = questionMatch ? questionMatch[1].trim() : undefined;
     
     console.log('extractUserData: パターン2で抽出成功 -', { year: +y, month: +m, day: +d, mbti, question });
     return { year: +y, month: +m, day: +d, mbti, question };
@@ -117,7 +124,8 @@ function extractMatchData(input) {
   const u = input.match(/・自分\s+(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})[\s\n　]*(\S+)/);
   const p = input.match(/・相手\s+(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})[\s\n　]*(\S+)/);
   
-  const topic = input.match(/・二人の関係性\s*(.+)/)?.[1]?.trim();
+  const topicMatch = input.match(/・二人の関係性\s*(.+)/);
+  const topic = topicMatch ? topicMatch[1].trim() : undefined;
   
   let user, partner;
   
@@ -128,14 +136,14 @@ function extractMatchData(input) {
       month: +uDateMatch[2], 
       day: +uDateMatch[3], 
       mbti: uMbtiMatch[1], 
-      gender: uGenderMatch?.[1] || '不明' 
+      gender: uGenderMatch ? uGenderMatch[1] : '不明'
     };
     partner = { 
       year: +pDateMatch[1], 
       month: +pDateMatch[2], 
       day: +pDateMatch[3], 
       mbti: pMbtiMatch[1], 
-      gender: pGenderMatch?.[1] || '不明' 
+      gender: pGenderMatch ? pGenderMatch[1] : '不明'
     };
   }
   // パターン2で解析
@@ -162,19 +170,23 @@ function getAttributes(year, month, day) {
   const targetDate = new Date(year, month - 1, day);
   const diff = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
   const eto = ((diff % 60 + 60) % 60) + 1;
-  const stem = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'][(
-    Math.floor((targetDate - new Date(1873, 0, 12)) / 86400000) % 10 + 10) % 10];
+  const stemIndex = Math.floor((targetDate - new Date(1873, 0, 12)) / 86400000) % 10;
+  const stemList = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+  const stem = stemList[(stemIndex + 10) % 10];
   const info = stemMap.find(e => e.day_stem === stem) || {};
+  const etoAnimal = animalMap.find(e => +e.干支番号 === eto);
+  
   return {
-    animal: animalMap.find(e => +e.干支番号 === eto)?.動物 || '不明',
-    stem,
+    animal: etoAnimal ? etoAnimal.動物 : '不明',
+    stem: stem,
     element: info.element || '不明',
     guardian: info.guardian_spirit || '不明'
   };
 }
 
 function normalizeText(input) {
-  return (input ?? "").toString().normalize("NFKC").trim();
+  const text = input != null ? input : "";
+  return text.toString().normalize("NFKC").trim();
 }
 
 function getPromptFilePath(nameRaw) {
@@ -189,45 +201,51 @@ function getPromptFilePath(nameRaw) {
 }
 
 function replaceVars(str, vars) {
-  return str.replace(/\$\{(.*?)\}/g, (match, key) => {
-    console.log(`変数置換: ${key}`);
+  // ${} パターンの置換
+  let result = str.replace(/\$\{(.*?)\}/g, function(match, key) {
+    console.log('変数置換: ' + key);
     
-    // ネストされたオブジェクトのアクセスをサポート
     const keys = key.split('.');
     let value = vars;
-    for (const k of keys) {
-      value = value?.[k];
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      value = value ? value[k] : undefined;
       if (value === undefined) {
-        console.log(`変数 ${key} が見つかりません。現在の値:`, value);
+        console.log('変数 ' + key + ' が見つかりません。');
         break;
       }
     }
     
-    const result = value || '';
-    console.log(`${key} = "${result}"`);
-    return result;
-  }).replace(/\{(.*?)\}/g, (match, key) => {
-    console.log(`変数置換({}): ${key}`);
-    
-    // ネストされたオブジェクトのアクセスをサポート
-    const keys = key.split('.');
-    let value = vars;
-    for (const k of keys) {
-      value = value?.[k];
-      if (value === undefined) {
-        console.log(`変数 ${key} が見つかりません。現在の値:`, value);
-        break;
-      }
-    }
-    
-    const result = value || '';
-    console.log(`${key} = "${result}"`);
-    return result;
+    const finalValue = value || '';
+    console.log(key + ' = "' + finalValue + '"');
+    return finalValue;
   });
+  
+  // {} パターンの置換
+  result = result.replace(/\{(.*?)\}/g, function(match, key) {
+    console.log('変数置換({}): ' + key);
+    
+    const keys = key.split('.');
+    let value = vars;
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      value = value ? value[k] : undefined;
+      if (value === undefined) {
+        console.log('変数 ' + key + ' が見つかりません。');
+        break;
+      }
+    }
+    
+    const finalValue = value || '';
+    console.log(key + ' = "' + finalValue + '"');
+    return finalValue;
+  });
+  
+  return result;
 }
 
 // ヘルスチェックエンドポイント
-app.get('/', (req, res) => {
+app.get('/', function(req, res) {
   res.status(200).json({ 
     status: 'OK', 
     message: 'LINE診断システムが正常に動作しています',
@@ -236,11 +254,11 @@ app.get('/', (req, res) => {
 });
 
 // ヘルスチェック用
-app.get('/health', (req, res) => {
+app.get('/health', function(req, res) {
   res.status(200).json({ status: 'healthy' });
 });
 
-app.post('/webhook', middleware(config), async (req, res) => {
+app.post('/webhook', middleware(config), async function(req, res) {
   if (!validateSignature(req)) return res.status(403).send('Invalid signature');
 
   for (const event of req.body.events) {
@@ -261,7 +279,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
     // 診断名が含まれていない場合は、通常のメッセージとして処理をスキップ
     if (!diagnosis) {
       console.log('通常のメッセージを受信（診断対象外）:', input);
-      continue; // 次のイベントの処理へ
+      continue;
     }
     
     // 診断名があるが、対応するプロンプトファイルがない場合
@@ -287,7 +305,9 @@ app.post('/webhook', middleware(config), async (req, res) => {
         });
         continue;
       }
-      ({ user, partner, topic } = data);
+      user = data.user;
+      partner = data.partner;
+      topic = data.topic;
     } else {
       const data = extractUserData(input);
       if (!data) {
@@ -315,14 +335,13 @@ app.post('/webhook', middleware(config), async (req, res) => {
       // プロンプトファイルを読み込み
       const promptFilePath = path.join(__dirname, 'prompts', promptFile);
       if (!fs.existsSync(promptFilePath)) {
-        throw new Error(`プロンプトファイルが見つかりません: ${promptFilePath}`);
+        throw new Error('プロンプトファイルが見つかりません: ' + promptFilePath);
       }
       
       const promptData = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
       
       // プロンプトファイルの構造に合わせて変数を構築
       const vars = {
-        // プロンプトファイルで使用される変数名に合わせる
         user: {
           mbti: user.mbti,
           year: user.year,
@@ -336,7 +355,6 @@ app.post('/webhook', middleware(config), async (req, res) => {
           element: userAttr.element,
           guardian: userAttr.guardian
         },
-        // 相性診断用の変数
         partner: partner ? {
           mbti: partner.mbti,
           year: partner.year,
@@ -350,7 +368,6 @@ app.post('/webhook', middleware(config), async (req, res) => {
           element: partnerAttr.element,
           guardian: partnerAttr.guardian
         } : null,
-        // 共通変数
         question: question || topic || '―',
         topic: topic || '―'
       };
@@ -360,28 +377,23 @@ app.post('/webhook', middleware(config), async (req, res) => {
       // プロンプトファイルのsummaryBlockTemplateを使用してサマリーを作成
       let summary;
       if (diagnosis.includes('相性診断')) {
-        // 相性診断用のサマリー（既存のロジックを維持）
-        summary = `◆ あなた：${user.mbti}/${user.gender}/${user.year}年${user.month}月${user.day}日 動物：${userAttr.animal} 算命：${userAttr.stem}（${userAttr.element}/${userAttr.guardian}）\n◆ 相手：${partner.mbti}/${partner.gender}/${partner.year}年${partner.month}月${partner.day}日 動物：${partnerAttr.animal} 算命：${partnerAttr.stem}（${partnerAttr.element}/${partnerAttr.guardian}）\n◆ 関係性：${topic}`;
+        summary = '◆ あなた：' + user.mbti + '/' + user.gender + '/' + user.year + '年' + user.month + '月' + user.day + '日 動物：' + userAttr.animal + ' 算命：' + userAttr.stem + '（' + userAttr.element + '/' + userAttr.guardian + '）\n◆ 相手：' + partner.mbti + '/' + partner.gender + '/' + partner.year + '年' + partner.month + '月' + partner.day + '日 動物：' + partnerAttr.animal + ' 算命：' + partnerAttr.stem + '（' + partnerAttr.element + '/' + partnerAttr.guardian + '）\n◆ 関係性：' + topic;
       } else {
-        // 個人診断用：プロンプトファイルのsummaryBlockTemplateを使用
         summary = promptData.summaryBlockTemplate ? 
           replaceVars(promptData.summaryBlockTemplate, vars) :
-          `◆ MBTI：${user.mbti}\n◆ 動物占い：${userAttr.animal}\n◆ 算命学：${userAttr.stem}（五行：${userAttr.element}／守護神：${userAttr.guardian}）\n◆ お悩み：${question || '―'}`;
+          '◆ MBTI：' + user.mbti + '\n◆ 動物占い：' + userAttr.animal + '\n◆ 算命学：' + userAttr.stem + '（五行：' + userAttr.element + '／守護神：' + userAttr.guardian + '）\n◆ お悩み：' + (question || '―');
       }
 
-      // varsにsummaryを追加
       vars.summary = summary;
 
-      // プロンプトを構築（より明確な指示に修正）
-      const prompt = `${promptData.extraInstruction}
+      // プロンプトを構築
+      const prompt = promptData.extraInstruction + '\n\n' + 
+                    replaceVars(promptData.structureGuide.join('\n'), vars) + 
+                    '\n\n上記の指示に従って、すべてのセクションを含む完全な診断文を生成してください。アウトラインやガイドラインではなく、実際の診断文章を書いてください。';
 
-${replaceVars(promptData.structureGuide.join('\n'), vars)}
-
-上記の指示に従って、すべてのセクションを含む完全な診断文を生成してください。アウトラインやガイドラインではなく、実際の診断文章を書いてください。`;
-
-      // OpenAI API呼び出し（修正版）
+      // OpenAI API呼び出し
       const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4',  // 'gpt-4-turbo-preview'から'gpt-4'に修正
+        model: 'gpt-4',
         messages: [
           {
             role: 'system',
@@ -392,23 +404,22 @@ ${replaceVars(promptData.structureGuide.join('\n'), vars)}
             content: prompt
           }
         ],
-        temperature: 0.75,        // 0.7から0.75に微調整
-        max_tokens: 4000,         // 4096から4000に調整
-        presence_penalty: 0.7,    // 0.6から0.7に増加（繰り返し防止強化）
-        frequency_penalty: 0.4,   // 0.3から0.4に増加
-        timeout: 60000            // タイムアウトを60秒に設定
+        temperature: 0.75,
+        max_tokens: 4000,
+        presence_penalty: 0.7,
+        frequency_penalty: 0.4
       }, {
         headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          Authorization: 'Bearer ' + process.env.OPENAI_API_KEY,
           'Content-Type': 'application/json'
         },
         timeout: 60000
       });
 
       const advice = aiRes.data.choices[0].message.content;
-      const filename = `${event.source.userId}_${Date.now()}.pdf`;
+      const filename = event.source.userId + '_' + Date.now() + '.pdf';
       const filepath = await generatePDF(
-        `${titleMap[diagnosis]}\n${summary}`, 
+        titleMap[diagnosis] + '\n' + summary,
         advice, 
         filename, 
         path.join(__dirname, 'templates', 'shindan01-top.pdf'), 
@@ -417,17 +428,19 @@ ${replaceVars(promptData.structureGuide.join('\n'), vars)}
       const fileUrl = await uploadPDF(filepath);
 
       await client.pushMessage(event.source.userId, [
-        { type: 'text', text: `🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\nこちらからご確認ください：` },
+        { 
+          type: 'text', 
+          text: '🐻‍❄️ ' + userName + 'さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\nこちらからご確認ください：'
+        },
         { type: 'text', text: fileUrl }
       ]);
 
     } catch (error) {
-      // エラーの詳細をログに出力（APIキーは隠す）
       const errorLog = {
         message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        errorDetails: error.response?.data?.error
+        status: error.response ? error.response.status : undefined,
+        statusText: error.response ? error.response.statusText : undefined,
+        errorDetails: error.response && error.response.data ? error.response.data.error : undefined
       };
       console.error('Error processing diagnosis:', errorLog);
       
@@ -441,5 +454,6 @@ ${replaceVars(promptData.structureGuide.join('\n'), vars)}
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, '0.0.0.0', () => console.log(`✅ Server running on ${port}`));
-```
+app.listen(port, '0.0.0.0', function() {
+  console.log('✅ Server running on ' + port);
+});
