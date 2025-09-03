@@ -376,7 +376,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
       // OpenAI API呼び出し
       const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4',
+        model: 'gpt-4-turbo-preview',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.6,
         max_tokens: 4000
