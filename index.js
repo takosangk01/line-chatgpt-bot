@@ -376,7 +376,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
       // OpenAI API呼び出し（修正版）
       const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4',
+        model: 'gpt-4-turbo-preview',  // モデル名を明示的に指定
         messages: [
           {
             role: 'system',
@@ -387,10 +387,10 @@ app.post('/webhook', middleware(config), async (req, res) => {
             content: prompt
           }
         ],
-        temperature: 0.7,        // 0.6から0.7に変更
-        max_tokens: 8000,        // 4000から8000に増加
-        presence_penalty: 0.6,   // 追加：繰り返しを防ぐ
-        frequency_penalty: 0.3   // 追加：同じ単語の頻出を防ぐ
+        temperature: 0.7,
+        max_tokens: 4096,        // 8000から4096に修正（GPT-4の上限）
+        presence_penalty: 0.6,
+        frequency_penalty: 0.3
       }, {
         headers: {
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -415,7 +415,15 @@ app.post('/webhook', middleware(config), async (req, res) => {
       ]);
 
     } catch (error) {
-      console.error('Error processing diagnosis:', error);
+      // エラーの詳細をログに出力（APIキーは隠す）
+      const errorLog = {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        errorDetails: error.response?.data?.error
+      };
+      console.error('Error processing diagnosis:', errorLog);
+      
       await client.pushMessage(event.source.userId, [
         { type: 'text', text: '🐻‍❄️ 申し訳ございません。診断の処理中にエラーが発生しました。もう一度お試しください。' }
       ]);
