@@ -1,3 +1,4 @@
+```javascript
 require('dotenv').config();
 const express = require('express');
 const { Client, middleware } = require('@line/bot-sdk');
@@ -371,31 +372,37 @@ app.post('/webhook', middleware(config), async (req, res) => {
       // varsにsummaryを追加
       vars.summary = summary;
 
-      // プロンプトを構築（extraInstructionとstructureGuideを結合）
-      const prompt = `${promptData.extraInstruction}\n\n${replaceVars(promptData.structureGuide.join('\n'), vars)}`;
+      // プロンプトを構築（より明確な指示に修正）
+      const prompt = `${promptData.extraInstruction}
+
+${replaceVars(promptData.structureGuide.join('\n'), vars)}
+
+上記の指示に従って、すべてのセクションを含む完全な診断文を生成してください。アウトラインやガイドラインではなく、実際の診断文章を書いてください。`;
 
       // OpenAI API呼び出し（修正版）
       const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4-turbo-preview',  // モデル名を明示的に指定
+        model: 'gpt-4',  // 'gpt-4-turbo-preview'から'gpt-4'に修正
         messages: [
           {
             role: 'system',
-            content: promptData.usePromptTemplate
+            content: promptData.usePromptTemplate + '\nあなたは診断文を作成する専門家です。'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.7,
-        max_tokens: 4096,        // 8000から4096に修正（GPT-4の上限）
-        presence_penalty: 0.6,
-        frequency_penalty: 0.3
+        temperature: 0.75,        // 0.7から0.75に微調整
+        max_tokens: 4000,         // 4096から4000に調整
+        presence_penalty: 0.7,    // 0.6から0.7に増加（繰り返し防止強化）
+        frequency_penalty: 0.4,   // 0.3から0.4に増加
+        timeout: 60000            // タイムアウトを60秒に設定
       }, {
         headers: {
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 60000
       });
 
       const advice = aiRes.data.choices[0].message.content;
@@ -435,3 +442,4 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
 const port = process.env.PORT || 3000;
 app.listen(port, '0.0.0.0', () => console.log(`✅ Server running on ${port}`));
+```
