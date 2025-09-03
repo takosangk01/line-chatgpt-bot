@@ -379,7 +379,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
         model: 'gpt-4-turbo-preview',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.6,
-        max_tokens: 4000
+        max_tokens: 8000
       }, {
         headers: {
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
