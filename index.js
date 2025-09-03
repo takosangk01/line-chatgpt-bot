@@ -371,15 +371,26 @@ app.post('/webhook', middleware(config), async (req, res) => {
       // varsにsummaryを追加
       vars.summary = summary;
 
-      // プロンプトを構築
-      const prompt = `${promptData.usePromptTemplate}\n\n${promptData.extraInstruction}\n\n${replaceVars(promptData.structureGuide.join('\n'), vars)}`;
+      // プロンプトを構築（extraInstructionとstructureGuideを結合）
+      const prompt = `${promptData.extraInstruction}\n\n${replaceVars(promptData.structureGuide.join('\n'), vars)}`;
 
-      // OpenAI API呼び出し
+      // OpenAI API呼び出し（修正版）
       const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
         model: 'gpt-4',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.6,
-        max_tokens: 4000
+        messages: [
+          {
+            role: 'system',
+            content: promptData.usePromptTemplate
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.7,        // 0.6から0.7に変更
+        max_tokens: 8000,        // 4000から8000に増加
+        presence_penalty: 0.6,   // 追加：繰り返しを防ぐ
+        frequency_penalty: 0.3   // 追加：同じ単語の頻出を防ぐ
       }, {
         headers: {
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
