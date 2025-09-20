@@ -374,34 +374,58 @@ app.post('/webhook', middleware(config), async (req, res) => {
       // プロンプトを構築
       const prompt = `${promptData.usePromptTemplate}\n\n${promptData.extraInstruction}\n\n${replaceVars(promptData.structureGuide.join('\n'), vars)}`;
 
-      // OpenAI API呼び出し
-      const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4o',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.6,
-        max_tokens: 6000
-      }, {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // OpenAI API呼び出し（デバッグコード付き）
+      try {
+        console.log('=== API呼び出し開始 ===');
+        console.log('プロンプト長:', prompt.length);
+        console.log('プロンプトの先頭500文字:', prompt.substring(0, 500));
+        console.log('API KEY存在:', !!process.env.OPENAI_API_KEY);
+        console.log('API KEY先頭10文字:', process.env.OPENAI_API_KEY?.substring(0, 10));
+        
+        const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.6,
+          max_tokens: 4000
+        }, {
+          headers: {
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 60000
+        });
 
-      const advice = aiRes.data.choices[0].message.content;
-      const filename = `${event.source.userId}_${Date.now()}.pdf`;
-      const filepath = await generatePDF(
-        `${titleMap[diagnosis]}\n${summary}`, 
-        advice, 
-        filename, 
-        path.join(__dirname, 'templates', 'shindan01-top.pdf'), 
-        titleMap[diagnosis]
-      );
-      const fileUrl = await uploadPDF(filepath);
+        console.log('=== API成功 ===');
+        console.log('レスポンスの先頭200文字:', aiRes.data.choices[0].message.content.substring(0, 200));
+        
+        const advice = aiRes.data.choices[0].message.content;
+        const filename = `${event.source.userId}_${Date.now()}.pdf`;
+        const filepath = await generatePDF(
+          `${titleMap[diagnosis]}\n${summary}`, 
+          advice, 
+          filename, 
+          path.join(__dirname, 'templates', 'shindan01-top.pdf'), 
+          titleMap[diagnosis]
+        );
+        const fileUrl = await uploadPDF(filepath);
 
-      await client.pushMessage(event.source.userId, [
-        { type: 'text', text: `🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\nこちらからご確認ください：` },
-        { type: 'text', text: fileUrl }
-      ]);
+        await client.pushMessage(event.source.userId, [
+          { type: 'text', text: `🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\nこちらからご確認ください：` },
+          { type: 'text', text: fileUrl }
+        ]);
+
+      } catch (apiError) {
+        console.error('=== OpenAI APIエラー詳細 ===');
+        console.error('ステータス:', apiError.response?.status);
+        console.error('エラーデータ:', JSON.stringify(apiError.response?.data, null, 2));
+        console.error('メッセージ:', apiError.message);
+        console.error('リクエストURL:', apiError.config?.url);
+        
+        await client.pushMessage(event.source.userId, [
+          { type: 'text', text: `🐻‍❄️ APIエラーが発生しました。\nエラー: ${apiError.response?.data?.error?.message || apiError.message}\nステータス: ${apiError.response?.status}` }
+        ]);
+        continue;
+      }
 
     } catch (error) {
       console.error('Error processing diagnosis:', error);
