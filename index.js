@@ -53,10 +53,7 @@ try {
 }
 
 const titleMap = {
-  '無料トータル診断': '◆◆ あなただけのトータル診断 ◆◆',
-  '自分診断': '◆◆ あなただけのプレミアム診断 ◆◆',
-  '相性診断': '◆◆ ふたりの相性診断 ◆◆',
-  '取扱説明書プレミアム': '◆◆ あなただけの取扱説明書 ◆◆'
+  '無料トータル診断': '◆◆ あなただけのトータル分析 ◆◆',
 };
 
 function validateSignature(req) {
@@ -181,9 +178,6 @@ function getPromptFilePath(nameRaw) {
   if (!name) return null;
 
   if (name.includes('無料トータル診断')) return 'muryo_total.json';
-  if (name.includes('自分診断'))         return 'premium_trial.json';
-  if (name.includes('相性診断'))         return 'premium_match_trial.json';
-  if (name.includes('取扱説明書プレミアム')) return 'premium_manual.json';
   return null;
 }
 
