@@ -1,4 +1,3 @@
-```js
 require('dotenv').config();
 const express = require('express');
 const { Client, middleware } = require('@line/bot-sdk');
@@ -309,4 +308,3 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
 const port = process.env.PORT || 3000;
 app.listen(port, '0.0.0.0', () => console.log(`✅ Server running on ${port}`));
-```
