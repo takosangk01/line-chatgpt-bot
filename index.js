@@ -255,7 +255,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
             { role: 'user', content: prompt }
           ],
           temperature: 0.6,
-          max_tokens: 6000
+          max_tokens: 4000
         }, {
           headers: {
             Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
