@@ -72,7 +72,7 @@ function extractUserData(input) {
   
   // パターン1: 生年月日：YYYY年MM月DD日 + MBTI：XXXX 形式
   let match = input.match(/生年月日[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
-  let mbtiMatch = input.match(/MBTI[：:]\s*([A-Z]{4})/i);  // ← iフラグ
+  let mbtiMatch = input.match(/MBTI[：:]\s*([A-Z]{4})/i);
 
   if (match && mbtiMatch) {
     const [, y, m, d] = match;
@@ -97,62 +97,6 @@ function extractUserData(input) {
   return null;
 }
 
-function extractMatchData(input) {
-  console.log('extractMatchData: 入力データ -', input);
-  
-  // パターン1: 生年月日とMBTIが別行の形式
-  const uDateMatch = input.match(/・自分[\s\n]*生年月日[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
-  const uMbtiMatch = input.match(/・自分.*?MBTI[：:]\s*([A-Z]{4})/s);
-  const uGenderMatch = input.match(/・自分.*?性別[：:]\s*(\S+)/s) || input.match(/・自分.*?([男女性])/);
-  
-  const pDateMatch = input.match(/・相手[\s\n]*生年月日[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
-  const pMbtiMatch = input.match(/・相手.*?MBTI[：:]\s*([A-Z]{4})/s);
-  const pGenderMatch = input.match(/・相手.*?性別[：:]\s*(\S+)/s) || input.match(/・相手.*?([男女性])/);
-  
-  // パターン2: 従来の1行形式
-  const u = input.match(/・自分\s+(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})[\s\n　]*(\S+)/);
-  const p = input.match(/・相手\s+(\d{4})年(\d{1,2})月(\d{1,2})日[\s\n　]*([A-Z]{4})[\s\n　]*(\S+)/);
-  
-  const topic = input.match(/・二人の関係性\s*(.+)/)?.[1]?.trim();
-  
-  let user, partner;
-  
-  // パターン1で解析
-  if (uDateMatch && uMbtiMatch && pDateMatch && pMbtiMatch) {
-    user = { 
-      year: +uDateMatch[1], 
-      month: +uDateMatch[2], 
-      day: +uDateMatch[3], 
-      mbti: uMbtiMatch[1], 
-      gender: uGenderMatch?.[1] || '不明' 
-    };
-    partner = { 
-      year: +pDateMatch[1], 
-      month: +pDateMatch[2], 
-      day: +pDateMatch[3], 
-      mbti: pMbtiMatch[1], 
-      gender: pGenderMatch?.[1] || '不明' 
-    };
-  }
-  // パターン2で解析
-  else if (u && p) {
-    user = { year: +u[1], month: +u[2], day: +u[3], mbti: u[4], gender: u[5] };
-    partner = { year: +p[1], month: +p[2], day: +p[3], mbti: p[4], gender: p[5] };
-  }
-  
-  if (!user || !partner || !topic) {
-    console.log('extractMatchData: マッチしませんでした。');
-    console.log('自分:', user);
-    console.log('相手:', partner);
-    console.log('関係性:', topic);
-    return null;
-  }
-  
-  const result = { user, partner, topic };
-  console.log('extractMatchData: 抽出成功 -', result);
-  return result;
-}
-
 function getAttributes(year, month, day) {
   const baseDate = new Date(1986, 1, 4);
   const targetDate = new Date(year, month - 1, day);
@@ -169,23 +113,10 @@ function getAttributes(year, month, day) {
   };
 }
 
-function normalizeText(input) {
-  return (input ?? "").toString().normalize("NFKC").trim();
-}
-
-function getPromptFilePath(nameRaw) {
-  const name = normalizeText(nameRaw);
-  if (!name) return null;
-
-  if (name.includes('無料トータル診断')) return 'muryo_total.json';
-  return null;
-}
-
 function replaceVars(str, vars) {
   return str.replace(/\$\{(.*?)\}/g, (match, key) => {
     console.log(`変数置換: ${key}`);
     
-    // ネストされたオブジェクトのアクセスをサポート
     const keys = key.split('.');
     let value = vars;
     for (const k of keys) {
@@ -202,7 +133,6 @@ function replaceVars(str, vars) {
   }).replace(/\{(.*?)\}/g, (match, key) => {
     console.log(`変数置換({}): ${key}`);
     
-    // ネストされたオブジェクトのアクセスをサポート
     const keys = key.split('.');
     let value = vars;
     for (const k of keys) {
@@ -228,7 +158,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// ヘルスチェック用
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy' });
 });
@@ -254,74 +183,45 @@ app.post('/webhook', middleware(config), async (req, res) => {
     // 診断名が含まれていない場合は、通常のメッセージとして処理をスキップ
     if (!diagnosis) {
       console.log('通常のメッセージを受信（診断対象外）:', input);
-      continue; // 次のイベントの処理へ
+      continue;
     }
-    
-    // 診断名があるが、対応するプロンプトファイルがない場合
-    const promptFile = getPromptFilePath(diagnosis);
-    if (!promptFile) {
-      console.log('未対応の診断名:', diagnosis);
+
+    // ユーザーデータを抽出
+    const userData = extractUserData(input);
+    if (!userData) {
       await client.replyMessage(event.replyToken, { 
         type: 'text', 
-        text: '🐻‍❄️ 申し訳ございません。その診断は現在対応しておりません。' 
+        text: '入力に不備があります。もう一度お試しくださいm(_ _)m' 
       });
       continue;
     }
 
-    // ここから診断処理
-    let user, partner, topic, question;
-    
-    if (diagnosis.includes('相性診断')) {
-      const data = extractMatchData(input);
-      if (!data) {
-        await client.replyMessage(event.replyToken, { 
-          type: 'text', 
-          text: '入力に不備があります。もう一度お試しくださいm(_ _)m' 
-        });
-        continue;
-      }
-      ({ user, partner, topic } = data);
-    } else {
-      const data = extractUserData(input);
-      if (!data) {
-        await client.replyMessage(event.replyToken, { 
-          type: 'text', 
-          text: '入力に不備があります。もう一度お試しくださいm(_ _)m' 
-        });
-        continue;
-      }
-      user = data; 
-      question = data.question;
-    }
-
     await client.replyMessage(event.replyToken, { 
       type: 'text', 
-      text: '🐻‍❄️ 診断を作成中です…' 
+      text: '🐻‍❄️ 分析を作成中です…' 
     });
 
     try {
       const profile = await client.getProfile(event.source.userId);
       const userName = profile.displayName;
-      const userAttr = getAttributes(user.year, user.month, user.day);
-      const partnerAttr = partner ? getAttributes(partner.year, partner.month, partner.day) : {};
+      const userAttr = getAttributes(userData.year, userData.month, userData.day);
 
       // プロンプトファイルを読み込み
-      const promptFilePath = path.join(__dirname, 'prompts', promptFile);
+      const promptFilePath = path.join(__dirname, 'prompts', 'muryo_total.json');
       if (!fs.existsSync(promptFilePath)) {
         throw new Error(`プロンプトファイルが見つかりません: ${promptFilePath}`);
       }
       
       const promptData = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
       
-      // プロンプトファイルの構造に合わせて変数を構築
+      // 変数を構築
       const vars = {
-        // プロンプトファイルで使用される変数名に合わせる
         user: {
-          mbti: user.mbti,
-          year: user.year,
-          month: user.month,
-          day: user.day,
-          gender: user.gender || null
+          mbti: userData.mbti,
+          year: userData.year,
+          month: userData.month,
+          day: userData.day,
+          gender: userData.gender || null
         },
         attrs: {
           animal: userAttr.animal,
@@ -329,46 +229,22 @@ app.post('/webhook', middleware(config), async (req, res) => {
           element: userAttr.element,
           guardian: userAttr.guardian
         },
-        // 相性診断用の変数
-        partner: partner ? {
-          mbti: partner.mbti,
-          year: partner.year,
-          month: partner.month,
-          day: partner.day,
-          gender: partner.gender
-        } : null,
-        partnerAttrs: partner ? {
-          animal: partnerAttr.animal,
-          stem: partnerAttr.stem,
-          element: partnerAttr.element,
-          guardian: partnerAttr.guardian
-        } : null,
-        // 共通変数
-        question: question || topic || '―',
-        topic: topic || '―'
+        question: userData.question || '―'
       };
 
       console.log('作成された変数:', JSON.stringify(vars, null, 2));
 
-      // プロンプトファイルのsummaryBlockTemplateを使用してサマリーを作成
-      let summary;
-      if (diagnosis.includes('相性診断')) {
-        // 相性診断用のサマリー（既存のロジックを維持）
-        summary = `◆ あなた：${user.mbti}/${user.gender}/${user.year}年${user.month}月${user.day}日 動物：${userAttr.animal} 算命：${userAttr.stem}（${userAttr.element}/${userAttr.guardian}）\n◆ 相手：${partner.mbti}/${partner.gender}/${partner.year}年${partner.month}月${partner.day}日 動物：${partnerAttr.animal} 算命：${partnerAttr.stem}（${partnerAttr.element}/${partnerAttr.guardian}）\n◆ 関係性：${topic}`;
-      } else {
-        // 個人診断用：プロンプトファイルのsummaryBlockTemplateを使用
-        summary = promptData.summaryBlockTemplate ? 
-          replaceVars(promptData.summaryBlockTemplate, vars) :
-          `◆ MBTI：${user.mbti}\n◆ 動物占い：${userAttr.animal}\n◆ 算命学：${userAttr.stem}（五行：${userAttr.element}／守護神：${userAttr.guardian}）\n◆ お悩み：${question || '―'}`;
-      }
+      // サマリーを作成
+      const summary = promptData.summaryBlockTemplate ? 
+        replaceVars(promptData.summaryBlockTemplate, vars) :
+        `◆ MBTI：${userData.mbti}\n◆ 動物占い：${userAttr.animal}\n◆ 算命学：${userAttr.stem}（五行：${userAttr.element}／守護神：${userAttr.guardian}）\n◆ お悩み：${userData.question || '―'}`;
 
-      // varsにsummaryを追加
       vars.summary = summary;
 
       // プロンプトを構築
       const prompt = `${promptData.usePromptTemplate}\n\n${promptData.extraInstruction}\n\n${replaceVars(promptData.structureGuide.join('\n'), vars)}`;
 
-      // OpenAI API呼び出し（デバッグコード付き）
+      // OpenAI API呼び出し
       try {
         console.log('=== API呼び出し開始 ===');
         console.log('プロンプト長:', prompt.length);
@@ -404,7 +280,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
         const fileUrl = await uploadPDF(filepath);
 
         await client.pushMessage(event.source.userId, [
-          { type: 'text', text: `🐻‍❄️ ${userName}さん、お待たせしました！\n診断結果のPDFが完成しました📄✨\n\nこちらからご確認ください：` },
+          { type: 'text', text: `🐻‍❄️ ${userName}さん、お待たせしました！\n分析結果のPDFが完成しました📄✨\n\nこちらからご確認ください：` },
           { type: 'text', text: fileUrl }
         ]);
 
@@ -413,10 +289,9 @@ app.post('/webhook', middleware(config), async (req, res) => {
         console.error('ステータス:', apiError.response?.status);
         console.error('エラーデータ:', JSON.stringify(apiError.response?.data, null, 2));
         console.error('メッセージ:', apiError.message);
-        console.error('リクエストURL:', apiError.config?.url);
         
         await client.pushMessage(event.source.userId, [
-          { type: 'text', text: `🐻‍❄️ APIエラーが発生しました。\nエラー: ${apiError.response?.data?.error?.message || apiError.message}\nステータス: ${apiError.response?.status}` }
+          { type: 'text', text: `🐻‍❄️ APIエラーが発生しました。\nエラー: ${apiError.response?.data?.error?.message || apiError.message}` }
         ]);
         continue;
       }
@@ -424,7 +299,7 @@ app.post('/webhook', middleware(config), async (req, res) => {
     } catch (error) {
       console.error('Error processing diagnosis:', error);
       await client.pushMessage(event.source.userId, [
-        { type: 'text', text: '🐻‍❄️ 申し訳ございません。診断の処理中にエラーが発生しました。もう一度お試しください。' }
+        { type: 'text', text: '🐻‍❄️ 申し訳ございません。分析の処理中にエラーが発生しました。もう一度お試しください。' }
       ]);
     }
   }
