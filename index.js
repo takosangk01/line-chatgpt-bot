@@ -1,3 +1,4 @@
+```js
 require('dotenv').config();
 const express = require('express');
 const { Client, middleware } = require('@line/bot-sdk');
@@ -113,37 +114,23 @@ function getAttributes(year, month, day) {
   };
 }
 
+/**
+ * ${...} だけを置換対象にする。{...} はテンプレのダミー指示として残す。
+ * 未定義はそのまま残す（空文字にしない）。
+ */
 function replaceVars(str, vars) {
-  return str.replace(/\$\{(.*?)\}/g, (match, key) => {
+  return str.replace(/\$\{([a-zA-Z0-9_.]+)\}/g, (match, key) => {
     console.log(`変数置換: ${key}`);
-    
     const keys = key.split('.');
     let value = vars;
     for (const k of keys) {
       value = value?.[k];
       if (value === undefined) {
-        console.log(`変数 ${key} が見つかりません。現在の値:`, value);
-        break;
+        console.log(`変数 ${key} が見つかりません。未展開のまま残します`);
+        return match; // 未定義はプレースホルダを残す
       }
     }
-    
-    const result = value || '';
-    console.log(`${key} = "${result}"`);
-    return result;
-  }).replace(/\{(.*?)\}/g, (match, key) => {
-    console.log(`変数置換({}): ${key}`);
-    
-    const keys = key.split('.');
-    let value = vars;
-    for (const k of keys) {
-      value = value?.[k];
-      if (value === undefined) {
-        console.log(`変数 ${key} が見つかりません。現在の値:`, value);
-        break;
-      }
-    }
-    
-    const result = value || '';
+    const result = String(value);
     console.log(`${key} = "${result}"`);
     return result;
   });
@@ -163,7 +150,8 @@ app.get('/health', (req, res) => {
 });
 
 app.post('/webhook', middleware(config), async (req, res) => {
-  if (!validateSignature(req)) return res.status(403).send('Invalid signature');
+  // 署名検証はミドルウェアに委任（誤判定を避ける）
+  // if (!validateSignature(req)) return res.status(403).send('Invalid signature');
 
   for (const event of req.body.events) {
     // LSTEPのWebhook送信（URLが設定されている場合のみ）
@@ -241,8 +229,11 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
       vars.summary = summary;
 
-      // プロンプトを構築
-      const prompt = `${promptData.usePromptTemplate}\n\n${promptData.extraInstruction}\n\n${replaceVars(promptData.structureGuide.join('\n'), vars)}`;
+      // プロンプトを構築（usePromptTemplate / extraInstruction / structureGuide すべてに展開適用）
+      const useTpl = replaceVars(promptData.usePromptTemplate || '', vars);
+      const extra  = replaceVars(promptData.extraInstruction || '', vars);
+      const struct = replaceVars((promptData.structureGuide || []).join('\n'), vars);
+      const prompt = `${useTpl}\n\n${extra}\n\n${struct}`;
 
       // OpenAI API呼び出し
       try {
@@ -254,7 +245,16 @@ app.post('/webhook', middleware(config), async (req, res) => {
         
         const aiRes = await axios.post('https://api.openai.com/v1/chat/completions', {
           model: 'gpt-4o',
-          messages: [{ role: 'user', content: prompt }],
+          messages: [
+            {
+              role: 'system',
+              content:
+                'この出力は娯楽・自己省察用の一般情報であり、医療・心理・法務・投資などの専門的助言や診断ではありません。' +
+                '健康・メンタルヘルス・危機対応は扱わず、危険・有害な行為を助長しないでください。' +
+                '優しいトーンで、ユーザーの尊厳を尊重し、具体例は日常の範囲に限定してください。'
+            },
+            { role: 'user', content: prompt }
+          ],
           temperature: 0.6,
           max_tokens: 6000
         }, {
@@ -309,3 +309,4 @@ app.post('/webhook', middleware(config), async (req, res) => {
 
 const port = process.env.PORT || 3000;
 app.listen(port, '0.0.0.0', () => console.log(`✅ Server running on ${port}`));
+```
