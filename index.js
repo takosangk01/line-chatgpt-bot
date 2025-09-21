@@ -243,7 +243,7 @@ async function callOpenAI(system, userContent) {
         { role: 'user', content: userContent },
       ],
       temperature: 0.6,
-      max_tokens: 2200, // レート/費用負荷を抑制
+      max_tokens: 6000, // レート/費用負荷を抑制
     },
     {
       headers: {
