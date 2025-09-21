@@ -10,33 +10,6 @@ const { generatePDF } = require('./pdfGenerator');
 const { uploadPDF } = require('./uploader');
 
 // ==============================
-//  秘密情報マスク & 安全ログ
-// ==============================
-function maskSecrets(s = '') {
-  try {
-    return String(s)
-      // OpenAI key sk- / sk-proj- 前半だけ残して伏字
-      .replace(/(sk-(?:proj-)?)[A-Za-z0-9_\-]{8,}/g, '$1********')
-      // Bearer ヘッダ
-      .replace(/Authorization:\s*Bearer\s+[A-Za-z0-9_\-\.]+/gi, 'Authorization: Bearer ********');
-  } catch {
-    return '***';
-  }
-}
-function safeLog(label, payload) {
-  const text = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
-  console.log(label, maskSecrets(text));
-}
-function safeError(label, err) {
-  const status = err?.response?.status;
-  const data = err?.response?.data;
-  const msg = err?.message;
-  safeLog(`${label} status=`, String(status || ''));
-  safeLog(`${label} data=`, data || {});
-  safeLog(`${label} message=`, msg || '');
-}
-
-// ==============================
 //  環境変数チェック
 // ==============================
 const requiredEnvVars = ['CHANNEL_ACCESS_TOKEN', 'CHANNEL_SECRET', 'OPENAI_API_KEY'];
@@ -59,7 +32,7 @@ const config = {
 const client = new Client(config);
 
 // ==============================
-//  必要ファイルの存在・読込（UTF-8）
+//  必要ファイルの存在・読込
 // ==============================
 const requiredFiles = [
   path.join(__dirname, 'data', 'corrected_animal_map_60.json'),
@@ -76,7 +49,7 @@ try {
     }
   });
 
-  // JSONは必ず utf8 で文字列読込
+  // ★ JSONは常にutf8文字列で読む
   animalMap = JSON.parse(fs.readFileSync(requiredFiles[0], 'utf8'));
   stemMap = JSON.parse(fs.readFileSync(requiredFiles[1], 'utf8'));
 
@@ -99,7 +72,10 @@ const titleMap = {
 function validateSignature(req) {
   const signature = req.headers['x-line-signature'];
   const body = JSON.stringify(req.body);
-  const hash = crypto.createHmac('sha256', process.env.CHANNEL_SECRET).update(body).digest('base64');
+  const hash = crypto
+    .createHmac('sha256', process.env.CHANNEL_SECRET)
+    .update(body)
+    .digest('base64');
   return signature === hash;
 }
 
@@ -154,9 +130,10 @@ function extractUserData(input) {
 }
 
 // ==============================
-//  干支/日干からの属性算出（UTCで計算）
+//  干支/日干からの属性算出（UTCで日付差を計算）
 // ==============================
 function toUTCDate(y, m, d) {
+  // 月は1-12で受け取り、UTCのDateに
   return new Date(Date.UTC(y, m - 1, d));
 }
 function daysBetweenUTC(a, b) {
@@ -164,13 +141,13 @@ function daysBetweenUTC(a, b) {
 }
 
 function getAttributes(year, month, day) {
-  // UTC計算で1日ズレ抑止
-  const baseDate = toUTCDate(1986, 2, 4); // 1986-02-04
+  // 既存ロジックに近いがUTC計算で1日ズレを抑止
+  const baseDate = toUTCDate(1986, 2, 4); // 1986-02-04 (UTC)
   const targetDate = toUTCDate(year, month, day);
   const diff = daysBetweenUTC(targetDate, baseDate);
   const eto = ((diff % 60 + 60) % 60) + 1;
 
-  const tenStemBase = toUTCDate(1873, 1, 12); // 1873-01-12
+  const tenStemBase = toUTCDate(1873, 1, 12); // 1873-01-12 (UTC)
   const stemIndex = ((daysBetweenUTC(targetDate, tenStemBase) % 10) + 10) % 10;
   const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
   const stem = stems[stemIndex];
@@ -231,7 +208,7 @@ function sanitizePrompt(p) {
 }
 
 // ==============================
-//  OpenAI 呼び出し（リトライ付き）
+//  OpenAI 呼び出しラッパ
 // ==============================
 async function callOpenAI(system, userContent) {
   const resp = await axios.post(
@@ -243,7 +220,7 @@ async function callOpenAI(system, userContent) {
         { role: 'user', content: userContent },
       ],
       temperature: 0.6,
-      max_tokens: 6000, // レート/費用負荷を抑制
+      max_tokens: 4000,
     },
     {
       headers: {
@@ -254,60 +231,6 @@ async function callOpenAI(system, userContent) {
     }
   );
   return resp.data.choices?.[0]?.message?.content || '';
-}
-
-async function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-async function callOpenAIWithRetry(system, userContent, retries = 2, initialDelayMs = 800) {
-  for (let i = 0; i <= retries; i++) {
-    try {
-      return await callOpenAI(system, userContent);
-    } catch (err) {
-      const status = err?.response?.status;
-      const retryAfter = parseInt(err?.response?.headers?.['retry-after'] || '0', 10);
-      const retryable = status === 429 || (status >= 500 && status < 600);
-      if (!retryable || i === retries) {
-        safeError('OpenAI error (give up)', err);
-        throw err;
-      }
-      const wait = retryAfter ? retryAfter * 1000 : initialDelayMs * Math.pow(2, i); // 0.8s→1.6s→3.2s
-      safeLog('OpenAI retry wait(ms)=', wait);
-      await sleep(wait);
-    }
-  }
-}
-
-// ==============================
-//  ユーザー単位の直列化 & 二重実行ガード
-// ==============================
-const userLocks = new Map(); // userId -> Promise
-async function runExclusive(userId, taskFn) {
-  const prev = userLocks.get(userId) || Promise.resolve();
-  let resolve;
-  const p = new Promise((r) => (resolve = r));
-  userLocks.set(userId, prev.finally(() => p));
-  try {
-    return await taskFn();
-  } finally {
-    resolve();
-    if (userLocks.get(userId) === p) userLocks.delete(userId);
-  }
-}
-
-const recentJobs = new Map(); // key -> timestamp
-const JOB_TTL = 2 * 60 * 1000; // 2分
-
-function makeJobKey(userId, diagnosis, userData) {
-  return `${userId}|${diagnosis}|${userData.year}-${userData.month}-${userData.day}|${userData.mbti}`;
-}
-function shouldSkipJob(key) {
-  const now = Date.now();
-  for (const [k, t] of recentJobs) if (now - t > JOB_TTL) recentJobs.delete(k);
-  if (recentJobs.has(key)) return true;
-  recentJobs.set(key, now);
-  return false;
 }
 
 // ==============================
@@ -329,167 +252,161 @@ app.get('/health', (req, res) => {
 //  Webhook
 // ==============================
 app.post('/webhook', middleware(config), async (req, res) => {
-  // 必要なら手動検証:
-  // if (!validateSignature(req)) return res.status(403).send('Invalid signature');
+  // （必要なら手動検証） if (!validateSignature(req)) return res.status(403).send('Invalid signature');
 
   for (const event of req.body.events) {
-    await runExclusive(event.source.userId || 'unknown', async () => {
-      // LSTEPへ転送（任意）
-      if (process.env.LSTEP_WEBHOOK_URL && process.env.LSTEP_WEBHOOK_URL.startsWith('http')) {
-        try {
-          await axios.post(process.env.LSTEP_WEBHOOK_URL, { events: [event] });
-        } catch (e) {
-          console.log('LSTEP webhook error:', e.message);
-        }
+    // LSTEPへ転送（任意）
+    if (process.env.LSTEP_WEBHOOK_URL && process.env.LSTEP_WEBHOOK_URL.startsWith('http')) {
+      try {
+        await axios.post(process.env.LSTEP_WEBHOOK_URL, { events: [event] });
+      } catch (e) {
+        console.log('LSTEP webhook error:', e.message);
       }
+    }
 
-      if (event.type !== 'message' || event.message.type !== 'text') return;
+    if (event.type !== 'message' || event.message.type !== 'text') continue;
 
-      const input = event.message.text;
-      const diagnosis = extractDiagnosisName(input);
+    const input = event.message.text;
+    const diagnosis = extractDiagnosisName(input);
 
-      // 診断名がなければ通常メッセージとしてスキップ
-      if (!diagnosis) {
-        console.log('通常のメッセージを受信（診断対象外）:', input);
-        return;
-      }
+    // 診断名がなければ通常メッセージとしてスキップ
+    if (!diagnosis) {
+      console.log('通常のメッセージを受信（診断対象外）:', input);
+      continue;
+    }
 
-      // 入力抽出
-      const userData = extractUserData(input);
-      if (!userData) {
-        await client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: '入力に不備があります。もう一度お試しくださいm(_ _)m',
-        });
-        return;
-      }
-
-      // 二重実行ガード（直近2分同一内容はスキップ）
-      const jobKey = makeJobKey(event.source.userId, diagnosis, userData);
-      if (shouldSkipJob(jobKey)) {
-        console.log('Duplicate job skipped:', jobKey);
-        return;
-      }
-
-      // 受付メッセージ（replyで即時）
+    // 入力抽出
+    const userData = extractUserData(input);
+    if (!userData) {
       await client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '🐻‍❄️ 分析を作成中です…',
+        text: '入力に不備があります。もう一度お試しくださいm(_ _)m',
       });
+      continue;
+    }
 
-      try {
-        // プロフィール取得（失敗しても処理続行）
-        let userName = 'あなた';
-        try {
-          const profile = await client.getProfile(event.source.userId);
-          userName = profile?.displayName || userName;
-        } catch {
-          /* noop */
-        }
-
-        const userAttr = getAttributes(userData.year, userData.month, userData.day);
-
-        // プロンプトファイル読込
-        const promptFilePath = path.join(__dirname, 'prompts', 'muryo_total.json');
-        if (!fs.existsSync(promptFilePath)) {
-          throw new Error(`プロンプトファイルが見つかりません: ${promptFilePath}`);
-        }
-        const promptData = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
-
-        // 変数構築
-        const vars = {
-          user: {
-            mbti: userData.mbti,
-            year: userData.year,
-            month: userData.month,
-            day: userData.day,
-            gender: userData.gender || null,
-          },
-          attrs: {
-            animal: userAttr.animal,
-            stem: userAttr.stem,
-            element: userAttr.element,
-            guardian: userAttr.guardian,
-          },
-          question: userData.question || '―',
-        };
-
-        console.log('作成された変数:', JSON.stringify(vars, null, 2));
-
-        // サマリー
-        const summary = promptData.summaryBlockTemplate
-          ? replaceVars(promptData.summaryBlockTemplate, vars)
-          : `◆ MBTI：${userData.mbti}\n◆ 動物占い：${userAttr.animal}\n◆ 算命学：${userAttr.stem}（五行：${userAttr.element}／守護神：${userAttr.guardian}）\n◆ お悩み：${userData.question || '―'}`;
-
-        vars.summary = summary;
-
-        // プロンプト構築
-        const useTpl = replaceVars(promptData.usePromptTemplate || '', vars);
-        const extra = replaceVars(promptData.extraInstruction || '', vars);
-        const struct = replaceVars((promptData.structureGuide || []).join('\n'), vars);
-        const prompt = `${useTpl}\n\n${extra}\n\n${struct}`;
-
-        // OpenAI呼び出し（通常 → 拒否なら安全版で1回だけ再試行）
-        safeLog('=== API呼び出し開始 === プロンプト長:', String(prompt.length));
-        safeLog('プロンプト先頭500:', prompt.substring(0, 500));
-        safeLog('API KEY先頭10文字:', process.env.OPENAI_API_KEY?.substring(0, 10));
-
-        const baseSystem =
-          'これは創作的な「自己理解ノート」です。' +
-          '専門的助言や評価には踏み込まず、日常で役立つ視点をやさしく紹介してください。' +
-          '危険・違法・差別的内容は扱わず、具体例は日常範囲に限定。' +
-          '断定やレッテルではなく、穏やかな提案と少量の問いかけで。';
-
-        let advice = await callOpenAIWithRetry(baseSystem, prompt);
-        safeLog('=== API成功(1) 先頭200 ===', advice.substring(0, 200));
-
-        if (isRefusal(advice)) {
-          console.log('⚠️ 拒否を検知。安全版プロンプトで再試行します。');
-          const saferSystem =
-            'これはフィクションとしての「自己理解ノート」です。' +
-            '専門分野の助言/診断/評価は行わず、一般情報として穏やかな提案のみ。' +
-            '判断やレッテルは避け、やさしいトーンと日常の具体例に限定。';
-          const saferUser = sanitizePrompt(prompt);
-
-          advice = await callOpenAIWithRetry(saferSystem, saferUser);
-          safeLog('=== API成功(リトライ) 先頭200 ===', advice.substring(0, 200));
-        }
-
-        if (isRefusal(advice)) {
-          throw new Error('モデルが安全上の理由で出力を拒否しました（2回試行）。');
-        }
-
-        // PDF生成 & アップロード
-        const filename = `${event.source.userId}_${Date.now()}.pdf`;
-        const filepath = await generatePDF(
-          `${titleMap[diagnosis]}\n${summary}`,
-          advice,
-          filename,
-          path.join(__dirname, 'templates', 'shindan01-top.pdf'),
-          titleMap[diagnosis]
-        );
-        const fileUrl = await uploadPDF(filepath);
-
-        // ユーザーへ送付
-        await client.pushMessage(event.source.userId, [
-          {
-            type: 'text',
-            text: `🐻‍❄️ ${userName}さん、お待たせしました！\n分析結果のPDFが完成しました📄✨\n\nこちらからご確認ください：`,
-          },
-          { type: 'text', text: fileUrl },
-        ]);
-      } catch (error) {
-        safeError('Error processing diagnosis', error);
-        await client.pushMessage(event.source.userId, [
-          {
-            type: 'text',
-            text:
-              '🐻‍❄️ すみません、文章の作成に失敗しました。\n' +
-              '少し表現を変えて再作成を試してみます。時間をおいてもう一度お試しください。',
-          },
-        ]);
-      }
+    // 受付メッセージ（replyで即時返答）
+    await client.replyMessage(event.replyToken, {
+      type: 'text',
+      text: '🐻‍❄️ 分析を作成中です…',
     });
+
+    try {
+      // プロフィール取得（失敗しても処理続行）
+      let userName = 'あなた';
+      try {
+        const profile = await client.getProfile(event.source.userId);
+        userName = profile?.displayName || userName;
+      } catch {
+        /* noop */
+      }
+
+      const userAttr = getAttributes(userData.year, userData.month, userData.day);
+
+      // プロンプトファイル読込
+      const promptFilePath = path.join(__dirname, 'prompts', 'muryo_total.json');
+      if (!fs.existsSync(promptFilePath)) {
+        throw new Error(`プロンプトファイルが見つかりません: ${promptFilePath}`);
+      }
+      const promptData = JSON.parse(fs.readFileSync(promptFilePath, 'utf8'));
+
+      // 変数構築
+      const vars = {
+        user: {
+          mbti: userData.mbti,
+          year: userData.year,
+          month: userData.month,
+          day: userData.day,
+          gender: userData.gender || null,
+        },
+        attrs: {
+          animal: userAttr.animal,
+          stem: userAttr.stem,
+          element: userAttr.element,
+          guardian: userAttr.guardian,
+        },
+        question: userData.question || '―',
+      };
+
+      console.log('作成された変数:', JSON.stringify(vars, null, 2));
+
+      // サマリー
+      const summary = promptData.summaryBlockTemplate
+        ? replaceVars(promptData.summaryBlockTemplate, vars)
+        : `◆ MBTI：${userData.mbti}\n◆ 動物占い：${userAttr.animal}\n◆ 算命学：${userAttr.stem}（五行：${userAttr.element}／守護神：${userAttr.guardian}）\n◆ お悩み：${userData.question || '―'}`;
+
+      vars.summary = summary;
+
+      // プロンプト構築
+      const useTpl = replaceVars(promptData.usePromptTemplate || '', vars);
+      const extra = replaceVars(promptData.extraInstruction || '', vars);
+      const struct = replaceVars((promptData.structureGuide || []).join('\n'), vars);
+      const prompt = `${useTpl}\n\n${extra}\n\n${struct}`;
+
+      // OpenAI呼び出し（通常 → 拒否なら安全版で1回だけ再試行）
+      console.log('=== API呼び出し開始 ===');
+      console.log('プロンプト長:', prompt.length);
+      console.log('プロンプトの先頭500文字:', prompt.substring(0, 500));
+      console.log('API KEY存在:', !!process.env.OPENAI_API_KEY);
+      console.log('API KEY先頭10文字:', process.env.OPENAI_API_KEY?.substring(0, 10));
+
+      const baseSystem =
+        'これは創作的な「自己理解ノート」です。' +
+        '専門助言や診断ではなく、日常で役立つ視点をやさしく紹介してください。' +
+        '危険・違法・差別的内容は扱わず、具体例は日常範囲に限定。' +
+        '断定や烙印ではなく、穏やかな提案と少量の問いかけで。';
+
+      let advice = await callOpenAI(baseSystem, prompt);
+      console.log('=== API成功(1) ===');
+      console.log('レスポンスの先頭200文字:', advice.substring(0, 200));
+
+      if (isRefusal(advice)) {
+        console.log('⚠️ 拒否を検知。安全版プロンプトで再試行します。');
+        const saferSystem =
+          'これはフィクションとしての「自己理解ノート」です。' +
+          '専門分野の助言/診断/評価は行わず、一般情報として穏やかな提案のみ。' +
+          '判断やレッテルは避け、やさしいトーンと日常の具体例に限定。';
+        const saferUser = sanitizePrompt(prompt);
+
+        advice = await callOpenAI(saferSystem, saferUser);
+        console.log('=== API成功(リトライ) ===');
+        console.log('レスポンスの先頭200文字:', advice.substring(0, 200));
+      }
+
+      if (isRefusal(advice)) {
+        throw new Error('モデルが安全上の理由で出力を拒否しました（2回試行）。');
+      }
+
+      // PDF生成 & アップロード
+      const filename = `${event.source.userId}_${Date.now()}.pdf`;
+      const filepath = await generatePDF(
+        `${titleMap[diagnosis]}\n${summary}`,
+        advice,
+        filename,
+        path.join(__dirname, 'templates', 'shindan01-top.pdf'),
+        titleMap[diagnosis]
+      );
+      const fileUrl = await uploadPDF(filepath);
+
+      // ユーザーへ送付
+      await client.pushMessage(event.source.userId, [
+        {
+          type: 'text',
+          text: `🐻‍❄️ ${userName}さん、お待たせしました！\n分析結果のPDFが完成しました📄✨\n\nこちらからご確認ください：`,
+        },
+        { type: 'text', text: fileUrl },
+      ]);
+    } catch (error) {
+      console.error('Error processing diagnosis:', error);
+      await client.pushMessage(event.source.userId, [
+        {
+          type: 'text',
+          text:
+            '🐻‍❄️ すみません、文章の作成に失敗しました。\n' +
+            '少し表現を変えて再作成を試してみます。時間をおいてもう一度お試しください。',
+        },
+      ]);
+    }
   }
 
   res.status(200).send('OK');
