@@ -12,6 +12,17 @@ const { uploadPDF } = require('./uploader');
 // ==============================
 //  秘密情報マスク & 安全ログ
 // ==============================
+function maskSecrets(s = '') {
+  try {
+    return String(s)
+      // OpenAI key sk- / sk-proj- 前半だけ残して伏字
+      .replace(/(sk-(?:proj-)?)[A-Za-z0-9_\-]{8,}/g, '$1********')
+      // Bearer ヘッダ
+      .replace(/Authorization:\s*Bearer\s+[A-Za-z0-9_\-\.]+/gi, 'Authorization: Bearer ********');
+  } catch {
+    return '***';
+  }
+}
 function safeLog(label, payload) {
   const text = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
   console.log(label, maskSecrets(text));
@@ -232,7 +243,7 @@ async function callOpenAI(system, userContent) {
         { role: 'user', content: userContent },
       ],
       temperature: 0.6,
-      max_tokens: 6000, // レート/費用負荷を抑制
+      max_tokens: 2200, // レート/費用負荷を抑制
     },
     {
       headers: {
